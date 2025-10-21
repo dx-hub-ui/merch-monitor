@@ -1,10 +1,5 @@
 import Link from "next/link";
-import type { Database } from "@/lib/supabase/types";
-
-interface TrendRecord
-  extends Database["public"]["Tables"]["merch_trend_metrics"]["Row"] {
-  merch_products: Pick<Database["public"]["Tables"]["merch_products"]["Row"], "asin" | "title" | "brand" | "image_url" | "url" | "bsr_category" | "price_cents"> | null;
-}
+import type { TrendRecord } from "@/lib/types/trends";
 
 export function TrendsList({ records }: { records: TrendRecord[] }) {
   if (!records.length) {

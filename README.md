@@ -77,3 +77,8 @@ All pages are responsive, accessible, and support dark mode via the header toggl
 - `npm run test:e2e` executes Playwright UI smoke checks (requires running the dev server separately).
 
 CI workflows run linting, tests, crawler, embedding, and metrics jobs. See `.github/workflows` for details.
+
+## Development notes
+
+- Remote product imagery is allowed via the configured `next.config.mjs` host patterns; no additional experimental flags are required because Server Actions are enabled by default in Next.js 14.
+- If you change Supabase types, regenerate `lib/supabase/types.ts` with `supabase gen types typescript --linked` so that strongly typed API hooks continue to compile.

@@ -16,9 +16,6 @@ const nextConfig = {
         hostname: "images.amazon.com"
       }
     ]
-  },
-  experimental: {
-    serverActions: true
   }
 };
 export default nextConfig;

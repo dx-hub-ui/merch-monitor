@@ -1,5 +1,28 @@
 import { createServerSupabaseClient } from "./server";
 import type { Database } from "./types";
+import { normaliseTrendRecord } from "../types/trends";
+import type { TrendRecord, RawTrendRecord } from "../types/trends";
+
+type ProductRow = Database["public"]["Tables"]["merch_products"]["Row"];
+type ProductSummary = Pick<
+  ProductRow,
+  | "asin"
+  | "title"
+  | "brand"
+  | "image_url"
+  | "bullet1"
+  | "bullet2"
+  | "merch_flag_source"
+  | "bsr"
+  | "bsr_category"
+  | "rating"
+  | "reviews_count"
+  | "price_cents"
+  | "url"
+  | "last_seen"
+>;
+
+type SemanticSearchResult = { asin: string; content: string; score: number };
 
 export async function getSession() {
   const supabase = createServerSupabaseClient();
@@ -24,7 +47,7 @@ export async function fetchProducts(params: {
   limit?: number;
   offset?: number;
   withImages?: boolean;
-}): Promise<Database["public"]["Tables"]["merch_products"]["Row"][]> {
+}): Promise<ProductSummary[]> {
   const supabase = createServerSupabaseClient();
   const { search = "", sort = "bsr", direction = "asc", limit = 40, offset = 0, withImages = false } = params;
   let query = supabase
@@ -46,12 +69,12 @@ export async function fetchProducts(params: {
   else if (sort === "last_seen") query = query.order("last_seen", { ascending });
   else query = query.order("bsr", { ascending, nullsFirst: false });
 
-  const { data, error } = await query;
+  const { data, error } = await query.returns<ProductSummary[]>();
   if (error) throw error;
   return data ?? [];
 }
 
-export async function fetchTrends(limit = 50) {
+export async function fetchTrends(limit = 50): Promise<TrendRecord[]> {
   const supabase = createServerSupabaseClient();
   const { data, error } = await supabase
     .from("merch_trend_metrics")
@@ -59,9 +82,10 @@ export async function fetchTrends(limit = 50) {
       "asin,momentum,bsr_now,bsr_24h,bsr_7d,reviews_now,reviews_24h,reviews_7d,rating_now,updated_at,merch_products(title,brand,image_url,url,bsr_category,price_cents)"
     )
     .order("momentum", { ascending: false })
-    .limit(limit);
+    .limit(limit)
+    .returns<RawTrendRecord[]>();
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []).map(normaliseTrendRecord);
 }
 
 export async function fetchProductDetail(asin: string) {
@@ -82,7 +106,7 @@ export async function fetchProductDetail(asin: string) {
   if (historyError) throw historyError;
   if (embeddingError) throw embeddingError;
 
-  let similar: { asin: string; content: string; score: number }[] = [];
+  let similar: SemanticSearchResult[] = [];
   const vector = embedding?.embedding as number[] | null | undefined;
   if (vector && vector.length) {
     const { data: results, error } = await supabase.rpc("semantic_search_merch", {
@@ -90,7 +114,8 @@ export async function fetchProductDetail(asin: string) {
       k: 12
     });
     if (error) throw error;
-    similar = (results ?? []).filter(item => item.asin !== asin);
+    const typedResults = (results ?? []) as SemanticSearchResult[];
+    similar = typedResults.filter((result: SemanticSearchResult) => result.asin !== asin);
   }
 
   return { product, history: history ?? [], similar };
