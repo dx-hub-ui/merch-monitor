@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "crawl": "node --loader ts-node/esm crawler/run.ts"
+    "crawl": "tsx crawler/run.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
