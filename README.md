@@ -35,6 +35,10 @@ HIDDEN_EXCLUDE="adult"
 
 Each key listed above overrides the admin-configured crawler settings. Omit a variable to keep the stored value.
 
+Boolean overrides are case-insensitive (`true`/`false`), numeric overrides are clamped to the allowed ranges (1–20 for pagination,
+50–5000 for `MAX_ITEMS`), and array overrides accept comma- or newline-delimited values. Empty strings are treated as `null` so
+the dashboard falls back to the stored defaults.
+
 All command-line scripts use [`dotenv`](https://github.com/motdotla/dotenv) and automatically hydrate `process.env` from the nearest `.env` file, so keep your local environment file committed to disk before running crawls or background jobs.
 
 ## Database setup

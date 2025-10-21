@@ -46,9 +46,20 @@ export const DEFAULT_CRAWLER_SETTINGS: CrawlerSettings = {
   max_items: 500
 };
 
-export const CRAWLER_SETTINGS_FIELDS = Object.keys(
-  DEFAULT_CRAWLER_SETTINGS
-) as Array<keyof CrawlerSettings>;
+export const CRAWLER_SETTINGS_FIELDS = [
+  "use_best_sellers",
+  "zgbs_pages",
+  "zgbs_paths",
+  "use_search",
+  "search_pages",
+  "search_category",
+  "search_sort",
+  "search_rh",
+  "search_keywords",
+  "hidden_include",
+  "hidden_exclude",
+  "max_items"
+] as const satisfies ReadonlyArray<keyof CrawlerSettings>;
 
 export const DEFAULT_ZGBS_PATHS = [
   "/Best-Sellers/zgbs",
@@ -96,17 +107,43 @@ export function normaliseCrawlerSettings(partial: Partial<CrawlerSettings>): Cra
   };
 }
 
-const BOOL_ENV_KEYS: Array<keyof CrawlerSettings> = ["use_best_sellers", "use_search"];
-const INT_ENV_KEYS: Array<keyof CrawlerSettings> = ["zgbs_pages", "search_pages", "max_items"];
-const ARRAY_ENV_KEYS: Array<keyof CrawlerSettings> = [
+const BOOL_ENV_KEYS = ["use_best_sellers", "use_search"] as const;
+
+const INT_ENV_KEYS = ["zgbs_pages", "search_pages", "max_items"] as const;
+
+const ARRAY_ENV_KEYS = [
   "zgbs_paths",
   "search_keywords",
   "hidden_include",
   "hidden_exclude"
-];
-const STRING_ENV_KEYS: Array<keyof CrawlerSettings> = ["search_category", "search_sort", "search_rh"];
+] as const;
+
+const STRING_ENV_KEYS = ["search_category", "search_sort", "search_rh"] as const;
 
 export type OverrideMap = Partial<Record<keyof CrawlerSettings, true>>;
+
+function isKeyFromList<T extends readonly (keyof CrawlerSettings)[]>(
+  key: keyof CrawlerSettings,
+  list: T
+): key is T[number] {
+  return (list as readonly string[]).includes(key as string);
+}
+
+function isBooleanSettingKey(key: keyof CrawlerSettings): key is (typeof BOOL_ENV_KEYS)[number] {
+  return isKeyFromList(key, BOOL_ENV_KEYS);
+}
+
+function isNumericSettingKey(key: keyof CrawlerSettings): key is (typeof INT_ENV_KEYS)[number] {
+  return isKeyFromList(key, INT_ENV_KEYS);
+}
+
+function isArraySettingKey(key: keyof CrawlerSettings): key is (typeof ARRAY_ENV_KEYS)[number] {
+  return isKeyFromList(key, ARRAY_ENV_KEYS);
+}
+
+function isNullableStringSettingKey(key: keyof CrawlerSettings): key is (typeof STRING_ENV_KEYS)[number] {
+  return isKeyFromList(key, STRING_ENV_KEYS);
+}
 
 export function applyEnvOverrides(
   settings: CrawlerSettings,
@@ -131,7 +168,7 @@ export function applyEnvOverrides(
         if (key === "max_items") {
           updated[key] = Math.min(5000, Math.max(50, value));
         } else {
-          updated[key] = Math.min(20, Math.max(1, value)) as CrawlerSettings[typeof key];
+          updated[key] = Math.min(20, Math.max(1, value));
         }
         overrides[key] = true;
       }
@@ -182,29 +219,45 @@ export function toSettingsPayload(input: unknown): CrawlerSettings {
   if (typeof input !== "object" || input === null) {
     return { ...DEFAULT_CRAWLER_SETTINGS };
   }
-  const base: Partial<CrawlerSettings> = {};
+  const base: CrawlerSettings = { ...DEFAULT_CRAWLER_SETTINGS };
   for (const key of CRAWLER_SETTINGS_FIELDS) {
     const raw = (input as Record<string, unknown>)[key];
     if (raw == null) continue;
-    if (Array.isArray(raw)) {
-      base[key] = sanitizeStringArray(raw as string[]) as CrawlerSettings[typeof key];
-    } else if (typeof raw === "boolean" || typeof raw === "number") {
-      base[key] = raw as CrawlerSettings[typeof key];
-    } else if (typeof raw === "string") {
-      if (key === "use_best_sellers" || key === "use_search") {
-        base[key] = (raw.toLowerCase() === "true") as CrawlerSettings[typeof key];
-      } else if (key === "zgbs_pages" || key === "search_pages" || key === "max_items") {
-        base[key] = Number.parseInt(raw, 10) as CrawlerSettings[typeof key];
-      } else if (
-        key === "zgbs_paths" ||
-        key === "search_keywords" ||
-        key === "hidden_include" ||
-        key === "hidden_exclude"
-      ) {
-        base[key] = sanitizeStringArray(parseDelimitedInput(raw)) as CrawlerSettings[typeof key];
-      } else {
-        base[key] = (raw.trim() || null) as CrawlerSettings[typeof key];
+    if (isArraySettingKey(key)) {
+      const values = Array.isArray(raw) ? (raw as string[]) : parseDelimitedInput(String(raw));
+      base[key] = sanitizeStringArray(values);
+      continue;
+    }
+
+    if (isBooleanSettingKey(key)) {
+      if (typeof raw === "boolean") {
+        base[key] = raw;
+      } else if (typeof raw === "string") {
+        base[key] = raw.toLowerCase() === "true";
       }
+      continue;
+    }
+
+    if (isNumericSettingKey(key)) {
+      const numeric = typeof raw === "number" ? raw : Number.parseInt(String(raw), 10);
+      if (Number.isFinite(numeric)) {
+        base[key] = numeric as CrawlerSettings[typeof key];
+      }
+      continue;
+    }
+
+    if (isNullableStringSettingKey(key)) {
+      if (typeof raw === "string") {
+        const trimmed = raw.trim();
+        base[key] = (trimmed || null) as CrawlerSettings[typeof key];
+      }
+      continue;
+    }
+
+    if (typeof raw === "string") {
+      base[key] = (raw.trim() || null) as CrawlerSettings[typeof key];
+    } else if (typeof raw === "number" || typeof raw === "boolean") {
+      base[key] = raw as CrawlerSettings[typeof key];
     }
   }
   return normaliseCrawlerSettings(base);

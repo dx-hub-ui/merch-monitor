@@ -206,11 +206,20 @@ function detectMerchSignal($: cheerio.CheerioAPI): { source: string | null; cont
       const items = Array.isArray(parsed) ? parsed : [parsed];
       for (const item of items) {
         if (item && typeof item === "object") {
-          const brand =
-            ((item as Record<string, unknown>).brand as { name?: string } | string | undefined) ??
-            (item as Record<string, unknown>).manufacturer;
-          const name = typeof brand === "string" ? brand : (brand?.name ?? "");
-          if (typeof name === "string") {
+          const meta = item as Record<string, unknown>;
+          const rawBrand = (meta.brand ?? meta.manufacturer) as unknown;
+          let name = "";
+          if (typeof rawBrand === "string") {
+            name = rawBrand;
+          } else if (
+            rawBrand &&
+            typeof rawBrand === "object" &&
+            "name" in rawBrand &&
+            typeof (rawBrand as { name?: unknown }).name === "string"
+          ) {
+            name = (rawBrand as { name: string }).name;
+          }
+          if (name) {
             const normalised = name.toLowerCase();
             if (normalised.includes("merch on demand") || normalised.includes("merch by amazon")) {
               jsonSignal = true;
