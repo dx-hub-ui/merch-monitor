@@ -89,4 +89,4 @@ CI workflows run linting, tests, crawler, embedding, and metrics jobs. See `.git
 
 ## Troubleshooting
 
-- **Failed to parse cookie string**: Older Supabase sessions stored in the browser may be base64-prefixed (e.g. `base64-eyJ...`). The middleware now decodes these values automatically, but if the error persists clear the `sb-*` cookies in your browser and try signing in again.
+- **Failed to parse cookie string**: Older Supabase sessions stored in the browser may be base64-prefixed (e.g. `base64-eyJ...`). Both the middleware and server helpers normalise these cookies before they reach Supabase, so the error should disappear after your first request. If it persists, clear the `sb-*` cookies in your browser and try signing in again.
