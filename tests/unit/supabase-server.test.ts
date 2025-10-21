@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decodeSupabaseCookieValue } from "@/lib/supabase/server";
+import { decodeSupabaseCookieValue } from "@/lib/supabase/cookies";
 
 describe("decodeSupabaseCookieValue", () => {
   it("returns null when value is undefined", () => {
