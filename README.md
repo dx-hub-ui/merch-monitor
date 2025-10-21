@@ -25,6 +25,8 @@ ZGBS_PATHS=/Best-Sellers/zgbs
 
 The crawler honours `MAX_ITEMS`, `ZGBS_PAGES`, and optional comma-delimited `ZGBS_PATHS`.
 
+All command-line scripts use [`dotenv`](https://github.com/motdotla/dotenv) and automatically hydrate `process.env` from the nearest `.env` file, so keep your local environment file committed to disk before running crawls or background jobs.
+
 ## Database setup
 
 Run the base migration against your Supabase database:
