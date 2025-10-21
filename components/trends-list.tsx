@@ -11,13 +11,14 @@ export function TrendsList({ records }: { records: TrendRecord[] }) {
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white/80 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-      <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
-        <thead className="bg-slate-100/80 dark:bg-slate-900/80">
-          <tr>
-            <Th>Rank</Th>
-            <Th>Product</Th>
-            <Th>Momentum</Th>
+    <div className="rounded-2xl border border-slate-200 bg-white/80 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
+      <div className="w-full overflow-x-auto">
+        <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
+          <thead className="bg-slate-100/80 dark:bg-slate-900/80">
+            <tr>
+              <Th>Rank</Th>
+              <Th>Product</Th>
+              <Th>Momentum</Th>
             <Th>BSR now</Th>
             <Th>BSR Δ 24h</Th>
             <Th>BSR Δ 7d</Th>
@@ -70,7 +71,8 @@ export function TrendsList({ records }: { records: TrendRecord[] }) {
             );
           })}
         </tbody>
-      </table>
+        </table>
+      </div>
     </div>
   );
 }
