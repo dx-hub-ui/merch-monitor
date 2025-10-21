@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ThemeToggle } from "./theme-toggle";
 import { UserMenu } from "./user-menu";
 
-export function AppHeader({ email }: { email: string | null }) {
+export function AppHeader({ email, isAdmin = false }: { email: string | null; isAdmin?: boolean }) {
   return (
     <header className="sticky top-0 z-40 border-b border-white/20 bg-gradient-to-r from-brand-deeper via-brand-dark to-brand/90 text-white shadow-lg">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3">
@@ -18,6 +18,11 @@ export function AppHeader({ email }: { email: string | null }) {
             <Link className="transition-colors hover:text-white" href="/trends">
               Trends
             </Link>
+            {isAdmin ? (
+              <Link className="transition-colors hover:text-white" href="/admin/crawler">
+                Crawler
+              </Link>
+            ) : null}
           </nav>
         </div>
         <div className="flex items-center gap-3">

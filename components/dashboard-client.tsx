@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import useSWRInfinite from "swr/infinite";
 import type { Database } from "@/lib/supabase/types";
 import { clsx } from "clsx";
+import { PRODUCT_TYPES } from "@/lib/crawler-settings";
 
 const PAGE_SIZE = 40;
 
@@ -28,6 +29,7 @@ export function DashboardClient() {
   const [sort, setSort] = useState<"bsr" | "reviews" | "rating" | "last_seen">("bsr");
   const [direction, setDirection] = useState<"asc" | "desc">("asc");
   const [withImages, setWithImages] = useState(false);
+  const [productType, setProductType] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
 
   const getKey = (pageIndex: number, previousPageData: ApiResponse | null) => {
@@ -40,6 +42,9 @@ export function DashboardClient() {
       offset: String(pageIndex * PAGE_SIZE),
       withImages: withImages ? "true" : "false"
     });
+    if (productType !== "all") {
+      params.set("type", productType);
+    }
     return `/api/products?${params.toString()}`;
   };
 
@@ -50,7 +55,7 @@ export function DashboardClient() {
   useEffect(() => {
     setSize(1);
     mutate();
-  }, [search, sort, direction, withImages, setSize, mutate]);
+  }, [search, sort, direction, withImages, productType, setSize, mutate]);
 
   const rows = useMemo(() => (data ? data.flat() : []), [data]);
   const hasMore = data ? data[data.length - 1]?.length === PAGE_SIZE : true;
@@ -91,6 +96,21 @@ export function DashboardClient() {
             >
               <option value="asc">Ascending</option>
               <option value="desc">Descending</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
+            Product type
+            <select
+              value={productType}
+              onChange={event => setProductType(event.target.value)}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-slate-900 shadow-sm focus:border-brand focus:ring-2 focus:ring-brand/60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            >
+              <option value="all">All types</option>
+              {PRODUCT_TYPES.map(type => (
+                <option key={type} value={type}>
+                  {formatProductType(type)}
+                </option>
+              ))}
             </select>
           </label>
         </div>
@@ -196,7 +216,9 @@ function TableView({ products, loading }: { products: ProductRow[]; loading: boo
                     >
                       {product.title ?? product.asin}
                     </a>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">ASIN {product.asin}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      ASIN {product.asin} · {formatProductType(product.product_type ?? "tshirt")}
+                    </p>
                     {product.bsr_category ? (
                       <span className="inline-flex items-center rounded-full border border-slate-200 px-2 py-0.5 text-xs text-slate-600 dark:border-slate-700 dark:text-slate-300">
                         {product.bsr_category}
@@ -251,7 +273,7 @@ function GridView({ products, loading }: { products: ProductRow[]; loading: bool
             <span>{formatPrice(product.price_cents)}</span>
           </div>
           <div className="mt-auto flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-            <span>{product.merch_flag_source ?? "Merch"}</span>
+            <span>{formatProductType(product.product_type ?? "tshirt")}</span>
             <time dateTime={product.last_seen}>{new Date(product.last_seen).toLocaleDateString()}</time>
           </div>
         </article>
@@ -267,4 +289,17 @@ function Th({ children }: { children: React.ReactNode }) {
 function formatPrice(price: number | null) {
   if (price == null) return "-";
   return `$${(price / 100).toFixed(2)}`;
+}
+
+function formatProductType(type: string) {
+  const map: Record<string, string> = {
+    hoodie: "Hoodie",
+    sweatshirt: "Sweatshirt",
+    "long-sleeve": "Long sleeve",
+    raglan: "Raglan",
+    "v-neck": "V-neck",
+    "tank-top": "Tank top",
+    tshirt: "T-Shirt"
+  };
+  return map[type] ?? "T-Shirt";
 }

@@ -18,12 +18,22 @@ NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_DB_URL=postgresql://postgres:service-role@db-host:6543/postgres
 OPENAI_API_KEY=sk-...
+# optional crawler overrides
 MAX_ITEMS=500
+USE_BEST_SELLERS=true
 ZGBS_PAGES=5
 ZGBS_PATHS=/Best-Sellers/zgbs
+USE_SEARCH=true
+SEARCH_PAGES=2
+SEARCH_CATEGORY=fashion-mens-tshirts
+SEARCH_SORT=review-rank
+SEARCH_RH=n:7141123011
+SEARCH_KEYWORDS="merch hoodie,retro tee"
+HIDDEN_INCLUDE="official"
+HIDDEN_EXCLUDE="adult"
 ```
 
-The crawler honours `MAX_ITEMS`, `ZGBS_PAGES`, and optional comma-delimited `ZGBS_PATHS`.
+Each key listed above overrides the admin-configured crawler settings. Omit a variable to keep the stored value.
 
 All command-line scripts use [`dotenv`](https://github.com/motdotla/dotenv) and automatically hydrate `process.env` from the nearest `.env` file, so keep your local environment file committed to disk before running crawls or background jobs.
 
@@ -52,7 +62,13 @@ npm run test:e2e   # Playwright UI smoke tests (requires running dev server)
 
 ### Crawling
 
-The crawler targets Amazon Best Seller (zgbs) paths and performs strict merch detection before upserting into the database. It throttles requests (≥4s between product fetches), blocks media, and emits JSON counters upon completion.
+The crawler now combines admin-configured discovery rules, per-key environment overrides, and strict post-filtering to keep the dataset fail-closed:
+
+- **Best Sellers & Search**: crawl Fashion/Novelty ZGBS categories and optional keyword searches (with `i`, `s`, `rh`, and hidden keyword filters). All candidate URLs are canonicalised to `https://www.amazon.com/dp/ASIN` before queuing.
+- **Strict merch detection**: pages must sit within a Fashion/Novelty breadcrumb and expose one of the approved “Merch on Demand” signals (logo, badge/byline, seller info, manufacturer, or JSON-LD). Non-matching pages are discarded.
+- **Variants**: twister data, `data-dp-url` attributes, and embedded JSON are scanned for additional ASINs; unseen variants are enqueued automatically.
+- **Persistence**: successful parses upsert `merch_products` and append a matching history record, updating `merch_flag_source` and the new `product_type` classification token (e.g. `hoodie`, `long-sleeve`, `tshirt`).
+- **Safety**: ≥4s throttling, media blocking, and a single JSON summary (including the final effective settings) are emitted at the end of each run.
 
 ### Embeddings
 
@@ -64,10 +80,11 @@ The crawler targets Amazon Best Seller (zgbs) paths and performs strict merch de
 
 ## UI overview
 
-- **Auth**: Email/password sign in & sign up.
-- **Dashboard**: Search, sort, filter (including imagery-only), grid/table switcher, responsive layout, infinite scroll.
+- **Auth**: Email/password sign in & sign up. (CI/E2E can set `E2E_BYPASS_AUTH=true` to inject an admin session.)
+- **Dashboard**: Search, sort, filter (including imagery-only and the new product-type selector), grid/table switcher, responsive layout, infinite scroll.
 - **Trends**: Momentum board with BSR/reviews deltas and semantic search panel.
 - **Product detail**: Product metadata, historical charts (BSR/reviews/price), similar items via pgvector.
+- **Admin / Crawler**: Admin-only control panel for discovery rules with environment override indicators and reset-to-defaults action.
 - **Account**: Change password and sign out.
 
 All pages are responsive, accessible, and support dark mode via the header toggle. APIs respond from the Edge runtime and return arrays; on internal errors the response is an empty array with an `x-error` header.

@@ -4,47 +4,34 @@ import { NextRequest } from "next/server";
 const range = vi.fn();
 const or = vi.fn();
 const not = vi.fn();
+const eq = vi.fn();
 const order = vi.fn();
 
 vi.mock("@supabase/supabase-js", () => ({
   createClient: () => ({
     from: () => ({
       select: () => ({
-        range: (...args: unknown[]) => {
-          range(...args);
-          return {
+        range: (...rangeArgs: unknown[]) => {
+          range(...rangeArgs);
+          const chain = {
             or: (...orArgs: unknown[]) => {
               or(...orArgs);
-              return {
-                not: (...notArgs: unknown[]) => {
-                  not(...notArgs);
-                  return {
-                    order: (...orderArgs: unknown[]) => {
-                      order(...orderArgs);
-                      return Promise.resolve({ data: [{ asin: "TEST" }], error: null });
-                    }
-                  };
-                },
-                order: (...orderArgs: unknown[]) => {
-                  order(...orderArgs);
-                  return Promise.resolve({ data: [{ asin: "TEST" }], error: null });
-                }
-              };
+              return chain;
             },
             not: (...notArgs: unknown[]) => {
               not(...notArgs);
-              return {
-                order: (...orderArgs: unknown[]) => {
-                  order(...orderArgs);
-                  return Promise.resolve({ data: [{ asin: "TEST" }], error: null });
-                }
-              };
+              return chain;
+            },
+            eq: (...eqArgs: unknown[]) => {
+              eq(...eqArgs);
+              return chain;
             },
             order: (...orderArgs: unknown[]) => {
               order(...orderArgs);
-              return Promise.resolve({ data: [{ asin: "TEST" }], error: null });
+              return Promise.resolve({ data: [{ asin: "TEST", product_type: "tshirt" }], error: null });
             }
           };
+          return chain;
         }
       })
     })
@@ -57,6 +44,7 @@ describe("products api", () => {
     or.mockClear();
     not.mockClear();
     order.mockClear();
+    eq.mockClear();
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon";
   });
@@ -70,5 +58,14 @@ describe("products api", () => {
     expect(Array.isArray(payload)).toBe(true);
     expect(range).toHaveBeenCalled();
     expect(order).toHaveBeenCalled();
+    expect(eq).not.toHaveBeenCalled();
+  });
+
+  it("applies product type filter", async () => {
+    const { GET } = await import("@/app/api/products/route");
+    const request = new NextRequest("http://localhost/api/products?type=hoodie");
+    const response = await GET(request);
+    await response.json();
+    expect(eq).toHaveBeenCalledWith("product_type", "hoodie");
   });
 });
