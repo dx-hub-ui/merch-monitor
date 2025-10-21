@@ -7,8 +7,18 @@
 }
 
 body {
-  @apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
+  @apply text-slate-900 dark:text-slate-100;
   font-family: "Inter", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  background-color: #f3e8ff;
+  background-image: radial-gradient(120% 120% at 90% 0%, rgba(192, 132, 252, 0.4) 0%, rgba(124, 58, 237, 0.35) 34%, rgba(46, 16, 101, 0.85) 100%),
+    linear-gradient(180deg, #f4f0ff 0%, #e5dbff 100%);
+  background-attachment: fixed;
+}
+
+html.dark body {
+  background-color: #0b0624;
+  background-image: radial-gradient(120% 120% at 80% 0%, rgba(192, 132, 252, 0.35) 0%, rgba(91, 33, 182, 0.45) 38%, rgba(12, 5, 33, 0.95) 100%),
+    linear-gradient(185deg, #1a103f 0%, #0b0624 100%);
 }
 
 a {
