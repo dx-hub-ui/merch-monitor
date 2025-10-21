@@ -93,6 +93,34 @@ The crawler now combines admin-configured discovery rules, per-key environment o
 
 All pages are responsive, accessible, and support dark mode via the header toggle. APIs respond from the Edge runtime and return arrays; on internal errors the response is an empty array with an `x-error` header.
 
+### Mobile experience
+
+- The sticky header now exposes a compact navigation toggle with Escape/overlay dismissal so primary routes remain reachable on smaller screens.
+- Dashboard controls reflow into a touch-sized grid, imagery filters gain a tappable chip treatment, and tables fall back to the card/grid layout by default on phones.
+- Wide tables (dashboard + trends) sit inside horizontal scroll containers, and the animated background relaxes its fixed attachment to avoid iOS scroll jank.
+
+### Promote a user to admin
+
+Crawler settings live behind the `/admin/crawler` route. To grant access, mark the Supabase user as an administrator—`lib/auth/roles.ts` accepts any of the metadata shapes below:
+
+1. Open the Supabase project → **Authentication → Users**.
+2. Select the account and edit metadata.
+3. In **App metadata** or **User metadata**, set one of:
+   - `{"is_admin": true}`
+   - `{"roles": ["admin"]}`
+   - `{"role": "admin"}`
+4. Save the record and have the user sign out/in so their JWT refreshes.
+
+Alternatively, run a SQL update against `auth.users` (adjusting the email filter as needed):
+
+```sql
+update auth.users
+set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || '{"is_admin": true}'::jsonb
+where email = 'founder@example.com';
+```
+
+Once the new JWT propagates, the crawler settings form unlocks editing controls and the header shows the “Crawler” navigation item.
+
 ## Visual design
 
 The application adopts a violet-forward palette inspired by the shared concept art: a deep indigo to electric purple gradient envelopes each page, while surface elements float on soft, blurred glass panels. Interactive accents use the updated `brand` Tailwind color tokens (`brand.light`, `brand`, `brand.dark`, `brand.deeper`) so buttons, focus states, and charts inherit the new scheme automatically in both light and dark themes.

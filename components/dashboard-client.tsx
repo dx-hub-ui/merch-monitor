@@ -30,7 +30,12 @@ export function DashboardClient() {
   const [direction, setDirection] = useState<"asc" | "desc">("asc");
   const [withImages, setWithImages] = useState(false);
   const [productType, setProductType] = useState<string>("all");
-  const [viewMode, setViewMode] = useState<"table" | "grid">("table");
+  const [viewMode, setViewMode] = useState<"table" | "grid">(() => {
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches) {
+      return "grid";
+    }
+    return "table";
+  });
 
   const getKey = (pageIndex: number, previousPageData: ApiResponse | null) => {
     if (previousPageData && previousPageData.length < PAGE_SIZE) return null;
@@ -63,8 +68,8 @@ export function DashboardClient() {
   return (
     <div className="flex flex-1 flex-col gap-4">
       <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/60">
-        <div className="flex flex-col gap-3 md:flex-row md:items-end">
-          <label className="flex flex-1 flex-col gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <label className="flex flex-col gap-1 text-sm font-medium text-slate-700 dark:text-slate-200 sm:col-span-2 xl:col-span-2">
             Filter
             <input
               value={search}
@@ -79,7 +84,7 @@ export function DashboardClient() {
             <select
               value={sort}
               onChange={event => setSort(event.target.value as typeof sort)}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-slate-900 shadow-sm focus:border-brand focus:ring-2 focus:ring-brand/60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 shadow-sm focus:border-brand focus:ring-2 focus:ring-brand/60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
             >
               <option value="bsr">Best Sellers Rank</option>
               <option value="reviews">Reviews count</option>
@@ -92,7 +97,7 @@ export function DashboardClient() {
             <select
               value={direction}
               onChange={event => setDirection(event.target.value as typeof direction)}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-slate-900 shadow-sm focus:border-brand focus:ring-2 focus:ring-brand/60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 shadow-sm focus:border-brand focus:ring-2 focus:ring-brand/60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
             >
               <option value="asc">Ascending</option>
               <option value="desc">Descending</option>
@@ -103,7 +108,7 @@ export function DashboardClient() {
             <select
               value={productType}
               onChange={event => setProductType(event.target.value)}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-slate-900 shadow-sm focus:border-brand focus:ring-2 focus:ring-brand/60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 shadow-sm focus:border-brand focus:ring-2 focus:ring-brand/60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
             >
               <option value="all">All types</option>
               {PRODUCT_TYPES.map(type => (
@@ -115,7 +120,7 @@ export function DashboardClient() {
           </label>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <label className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
+          <label className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white/60 px-3 py-2 text-sm font-medium text-slate-600 shadow-sm dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-300 sm:w-auto">
             <input
               type="checkbox"
               checked={withImages}
@@ -124,12 +129,12 @@ export function DashboardClient() {
             />
             With imagery only
           </label>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 sm:justify-end">
             <button
               type="button"
               onClick={() => setViewMode("table")}
               className={clsx(
-                "rounded-lg px-3 py-1 text-sm font-medium",
+                "rounded-lg px-3 py-2 text-sm font-medium",
                 viewMode === "table"
                   ? "bg-brand text-white shadow"
                   : "border border-slate-300 bg-white text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
@@ -141,7 +146,7 @@ export function DashboardClient() {
               type="button"
               onClick={() => setViewMode("grid")}
               className={clsx(
-                "rounded-lg px-3 py-1 text-sm font-medium",
+                "rounded-lg px-3 py-2 text-sm font-medium",
                 viewMode === "grid"
                   ? "bg-brand text-white shadow"
                   : "border border-slate-300 bg-white text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
@@ -180,7 +185,7 @@ function TableView({ products, loading }: { products: ProductRow[]; loading: boo
     return <div className="h-80 animate-pulse rounded-2xl bg-slate-200/60 dark:bg-slate-800/40" aria-label="Loading products" />;
   }
   return (
-    <div className="overflow-x-auto">
+    <div className="w-full overflow-x-auto">
       <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
         <thead className="bg-slate-100/70 dark:bg-slate-900/80">
           <tr>
@@ -248,7 +253,7 @@ function GridView({ products, loading }: { products: ProductRow[]; loading: bool
     return <div className="h-80 animate-pulse rounded-2xl bg-slate-200/60 dark:bg-slate-800/40" aria-label="Loading products" />;
   }
   return (
-    <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3">
       {products.map(product => (
         <article key={product.asin} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg dark:border-slate-800 dark:bg-slate-900/70">
           {product.image_url ? (

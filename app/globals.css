@@ -15,6 +15,13 @@ body {
   background-attachment: fixed;
 }
 
+@media (max-width: 768px) {
+  body {
+    background-attachment: scroll;
+    background-position: center top;
+  }
+}
+
 html.dark body {
   background-color: #0b0624;
   background-image: radial-gradient(120% 120% at 80% 0%, rgba(192, 132, 252, 0.35) 0%, rgba(91, 33, 182, 0.45) 38%, rgba(12, 5, 33, 0.95) 100%),
