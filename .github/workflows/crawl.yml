@@ -3,19 +3,34 @@ on:
   schedule:
     - cron: "17 */6 * * *"
   workflow_dispatch:
+    inputs:
+      max_items:
+        description: "Target saved items"
+        required: false
+        default: "500"
+      zgbs_pages:
+        description: "Pages per Best Sellers path"
+        required: false
+        default: "5"
+      zgbs_paths:
+        description: "Comma-separated zgbs paths (optional)"
+        required: false
+        default: ""
 jobs:
   crawl:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 20 }
+        with:
+          node-version: 20
+          cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - env:
+      - name: Run crawler
+        env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-          MAX_ITEMS: "500"
-          ZGBS_PAGES: "5"
-          # Optional: customize discovery roots
-          # ZGBS_PATHS: "/Best-Sellers/zgbs,/Best-Sellers-Clothing-Shoes-Jewelry/zgbs/fashion"
+          MAX_ITEMS: ${{ github.event.inputs.max_items || '500' }}
+          ZGBS_PAGES: ${{ github.event.inputs.zgbs_pages || '5' }}
+          ZGBS_PATHS: ${{ github.event.inputs.zgbs_paths }}
         run: npm run crawl
