@@ -33,4 +33,4 @@ jobs:
           MAX_ITEMS: ${{ github.event.inputs.max_items || '500' }}
           ZGBS_PAGES: ${{ github.event.inputs.zgbs_pages || '5' }}
           ZGBS_PATHS: ${{ github.event.inputs.zgbs_paths }}
-        run: npm run crawl
+        run: npx tsx crawler/run.ts
