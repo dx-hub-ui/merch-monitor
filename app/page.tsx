@@ -45,8 +45,15 @@ export default function Home() {
   const [withImg, setWithImg] = useState(false);
 
   async function load() {
-    const r = await fetch(`/api/products?q=${encodeURIComponent(q)}&sort=${sort}&dir=${dir}&limit=150`);
-    setRows(await r.json());
+    const r = await fetch(`/api/products?q=${encodeURIComponent(q)}&sort=${sort}&dir=${dir}&limit=150`, { cache: "no-store" });
+    let data: unknown;
+    try { data = await r.json(); } catch { data = []; }
+    if (!Array.isArray(data)) {
+      console.error("API error payload:", data);
+      setRows([]);
+      return;
+    }
+    setRows(data as Row[]);
   }
   useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
 
