@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { PRODUCT_TYPES } from "@/lib/crawler-settings";
 
 export const runtime = "edge";
 
@@ -11,6 +12,8 @@ export async function GET(req: NextRequest) {
   const sort = (url.searchParams.get("sort") as "bsr" | "reviews" | "rating" | "last_seen") || "bsr";
   const direction = (url.searchParams.get("dir") || "asc").toLowerCase() === "asc";
   const withImages = (url.searchParams.get("withImages") || "false").toLowerCase() === "true";
+  const typeFilter = url.searchParams.get("type");
+  const normalisedType = typeFilter && PRODUCT_TYPES.includes(typeFilter as (typeof PRODUCT_TYPES)[number]) ? typeFilter : null;
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -23,7 +26,7 @@ export async function GET(req: NextRequest) {
   let query = supabase
     .from("merch_products")
     .select(
-      "asin,title,brand,image_url,bullet1,bullet2,merch_flag_source,bsr,bsr_category,rating,reviews_count,price_cents,url,last_seen"
+      "asin,title,brand,image_url,bullet1,bullet2,merch_flag_source,product_type,bsr,bsr_category,rating,reviews_count,price_cents,url,last_seen"
     )
     .range(offset, offset + limit - 1);
 
@@ -33,6 +36,10 @@ export async function GET(req: NextRequest) {
 
   if (withImages) {
     query = query.not("image_url", "is", null);
+  }
+
+  if (normalisedType) {
+    query = query.eq("product_type", normalisedType);
   }
 
   if (sort === "reviews") query = query.order("reviews_count", { ascending: direction });

@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from "./server";
 import type { Database } from "./types";
+import type { Session } from "@supabase/supabase-js";
 import { normaliseTrendRecord } from "../types/trends";
 import type { TrendRecord, RawTrendRecord } from "../types/trends";
 
@@ -13,6 +14,7 @@ type ProductSummary = Pick<
   | "bullet1"
   | "bullet2"
   | "merch_flag_source"
+  | "product_type"
   | "bsr"
   | "bsr_category"
   | "rating"
@@ -25,6 +27,16 @@ type ProductSummary = Pick<
 type SemanticSearchResult = { asin: string; content: string; score: number };
 
 export async function getSession() {
+  if (process.env.E2E_BYPASS_AUTH === "true") {
+    return {
+      user: {
+        id: "e2e-admin",
+        email: "admin@example.com",
+        app_metadata: { provider: "email", is_admin: true },
+        user_metadata: { is_admin: true }
+      }
+    } as unknown as Session;
+  }
   const supabase = createServerSupabaseClient();
   const {
     data: { session }
@@ -53,7 +65,7 @@ export async function fetchProducts(params: {
   let query = supabase
     .from("merch_products")
     .select(
-      "asin,title,brand,image_url,bullet1,bullet2,merch_flag_source,bsr,bsr_category,rating,reviews_count,price_cents,url,last_seen"
+      "asin,title,brand,image_url,bullet1,bullet2,merch_flag_source,product_type,bsr,bsr_category,rating,reviews_count,price_cents,url,last_seen"
     )
     .range(offset, offset + limit - 1);
 

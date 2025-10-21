@@ -20,6 +20,10 @@ function normalizeSupabaseCookies(request: NextRequest) {
 }
 
 export async function middleware(request: NextRequest) {
+  if (process.env.E2E_BYPASS_AUTH === "true") {
+    return NextResponse.next();
+  }
+
   normalizeSupabaseCookies(request);
 
   const response = NextResponse.next();

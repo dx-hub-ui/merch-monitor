@@ -18,6 +18,7 @@ export type Database = {
           bullet1: string | null;
           bullet2: string | null;
           merch_flag_source: string | null;
+          product_type: string | null;
           first_seen: string;
           last_seen: string;
           created_at: string;
@@ -36,6 +37,7 @@ export type Database = {
           bullet1?: string | null;
           bullet2?: string | null;
           merch_flag_source?: string | null;
+          product_type?: string | null;
           first_seen?: string;
           last_seen?: string;
         };
@@ -50,6 +52,8 @@ export type Database = {
           reviews_count: number | null;
           bsr: number | null;
           bsr_category: string | null;
+          merch_flag_source: string | null;
+          product_type: string | null;
           captured_at: string;
         };
         Insert: {
@@ -59,9 +63,45 @@ export type Database = {
           reviews_count?: number | null;
           bsr?: number | null;
           bsr_category?: string | null;
+          merch_flag_source?: string | null;
+          product_type?: string | null;
           captured_at?: string;
         };
         Update: Database["public"]["Tables"]["merch_products_history"]["Insert"];
+      };
+      crawler_settings: {
+        Row: {
+          id: number;
+          use_best_sellers: boolean;
+          zgbs_pages: number;
+          zgbs_paths: string[];
+          use_search: boolean;
+          search_pages: number;
+          search_category: string | null;
+          search_sort: string | null;
+          search_rh: string | null;
+          search_keywords: string[];
+          hidden_include: string[];
+          hidden_exclude: string[];
+          max_items: number;
+          updated_at: string;
+        };
+        Insert: {
+          id?: number;
+          use_best_sellers?: boolean;
+          zgbs_pages?: number;
+          zgbs_paths?: string[];
+          use_search?: boolean;
+          search_pages?: number;
+          search_category?: string | null;
+          search_sort?: string | null;
+          search_rh?: string | null;
+          search_keywords?: string[];
+          hidden_include?: string[];
+          hidden_exclude?: string[];
+          max_items?: number;
+        };
+        Update: Database["public"]["Tables"]["crawler_settings"]["Insert"];
       };
       merch_embeddings: {
         Row: {
