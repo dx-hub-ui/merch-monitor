@@ -86,3 +86,7 @@ CI workflows run linting, tests, crawler, embedding, and metrics jobs. See `.git
 
 - Remote product imagery is allowed via the configured `next.config.mjs` host patterns; no additional experimental flags are required because Server Actions are enabled by default in Next.js 14.
 - If you change Supabase types, regenerate `lib/supabase/types.ts` with `supabase gen types typescript --linked` so that strongly typed API hooks continue to compile.
+
+## Troubleshooting
+
+- **Failed to parse cookie string**: Older Supabase sessions stored in the browser may be base64-prefixed (e.g. `base64-eyJ...`). The middleware now decodes these values automatically, but if the error persists clear the `sb-*` cookies in your browser and try signing in again.
