@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { Client } from "pg";
 import { collectFromZgbs, parseProduct } from "../lib/crawler.js";
 

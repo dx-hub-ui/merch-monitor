@@ -1,24 +1,21 @@
-name: Crawl Amazon Merch
+name: Crawl and metrics
+
 on:
   schedule:
-    - cron: "17 */6 * * *"
+    - cron: "0 */6 * * *"
   workflow_dispatch:
-    inputs:
-      max_items:
-        description: "Target saved items"
-        required: false
-        default: "500"
-      zgbs_pages:
-        description: "Pages per Best Sellers path"
-        required: false
-        default: "5"
-      zgbs_paths:
-        description: "Comma-separated zgbs paths (optional)"
-        required: false
-        default: ""
+
 jobs:
-  crawl:
+  run-jobs:
     runs-on: ubuntu-latest
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      MAX_ITEMS: ${{ secrets.MAX_ITEMS }}
+      ZGBS_PAGES: ${{ secrets.ZGBS_PAGES }}
+      ZGBS_PATHS: ${{ secrets.ZGBS_PATHS }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -27,10 +24,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - name: Run crawler
-        env:
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-          MAX_ITEMS: ${{ github.event.inputs.max_items || '500' }}
-          ZGBS_PAGES: ${{ github.event.inputs.zgbs_pages || '5' }}
-          ZGBS_PATHS: ${{ github.event.inputs.zgbs_paths }}
-        run: npx tsx crawler/run.ts
+      - name: Crawl merch listings
+        run: npm run crawl
+      - name: Generate embeddings
+        run: npm run embed
+      - name: Compute trend metrics
+        run: npm run metrics
