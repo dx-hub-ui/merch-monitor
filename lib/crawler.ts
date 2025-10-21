@@ -406,7 +406,8 @@ export async function parseProduct(url: string, browser?: Browser): Promise<Pars
 
   const ratingTxt =
     $("span[data-hook='rating-out-of-text'], i.a-icon-star span.a-icon-alt").first().text().trim() || null;
-  const rating = ratingTxt ? parseFloat(ratingTxt.replace(/[^\d.]/g, "")) : null;
+  const ratingMatch = ratingTxt?.match(/\d+(?:\.\d+)?/);
+  const rating = ratingMatch ? parseFloat(ratingMatch[0]) : null;
 
   const reviewsTxt =
     $("#acrCustomerReviewText, a[data-hook='see-all-reviews-link-foot']").first().text().replace(/[^\d]/g, "");
