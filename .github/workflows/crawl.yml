@@ -14,6 +14,8 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-          KEYWORDS: "funny t-shirt,teacher shirt,halloween shirt"
-          PAGES: "2"
+          MAX_ITEMS: "500"
+          ZGBS_PAGES: "5"
+          # Optional: customize discovery roots
+          # ZGBS_PATHS: "/Best-Sellers/zgbs,/Best-Sellers-Clothing-Shoes-Jewelry/zgbs/fashion"
         run: npm run crawl

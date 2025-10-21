@@ -4,7 +4,7 @@ import * as cheerio from "cheerio";
 const UA = "PersonalResearchBot/1.0 (+contact:youremail)";
 const BASE = "https://www.amazon.com";
 
-function moneyToCents(txt?: string|null) {
+function moneyToCents(txt?: string | null) {
   if (!txt) return null;
   const m = txt.replace(/[^\d.]/g, "");
   return m ? Math.round(parseFloat(m) * 100) : null;
@@ -14,9 +14,47 @@ function parseBSR($: cheerio.CheerioAPI) {
   const m = text.match(/Best Sellers Rank\s*#([\d,]+)\s*in\s*([^\(]+)/i);
   return m ? { rank: parseInt(m[1].replace(/,/g, ""), 10), cat: m[2].trim() } : { rank: null, cat: null };
 }
+
+// strict merch predicate
 function isMerch($: cheerio.CheerioAPI) {
-  const s = $("#bylineInfo, .a-row, .po-badges, #detailBullets_feature_div").text().toLowerCase();
-  return s.includes("merch on demand") || s.includes("merch by amazon");
+  const t = (sel: string) => $(sel).text().toLowerCase();
+  const byline = t("#bylineInfo, #brand, .po-badges, #detailBullets_feature_div, #centerCol");
+  const badge = byline.includes("merch on demand") || byline.includes("merch by amazon");
+  const merchantInfo = t("#merchant-info, #tabular-buybox, #shipsFromSoldBy_feature_div");
+  const seller = merchantInfo.includes("sold by merch on demand") || merchantInfo.includes("seller: merch on demand");
+  const details = t("#productDetails_techSpec_section_1, #productDetails_detailBullets_sections1, #detailBulletsWrapper_feature_div");
+  const manufacturer = /manufacturer\s*:?\s*merch on demand/i.test(details) || /brand\s*:?\s*merch on demand/i.test(details);
+  let jsonBrand = false;
+  $('script[type="application/ld+json"]').each((_, s) => {
+    try {
+      const obj = JSON.parse($(s).contents().text());
+      const arr = Array.isArray(obj) ? obj : [obj];
+      for (const x of arr) {
+        const b = (x?.brand?.name || x?.brand || x?.manufacturer || "").toString().toLowerCase();
+        if (b.includes("merch on demand") || b.includes("merch by amazon")) { jsonBrand = true; break; }
+      }
+    } catch {}
+  });
+  return badge || seller || manufacturer || jsonBrand;
+}
+function merchSource($: cheerio.CheerioAPI): string | null {
+  const t = (sel: string) => $(sel).text().toLowerCase();
+  if (t("#bylineInfo, #brand, .po-badges, #centerCol").includes("merch on demand") || t("#bylineInfo").includes("merch by amazon")) return "badge/byline";
+  if (t("#merchant-info, #tabular-buybox, #shipsFromSoldBy_feature_div").includes("sold by merch on demand")) return "seller";
+  const det = t("#productDetails_techSpec_section_1, #productDetails_detailBullets_sections1, #detailBulletsWrapper_feature_div");
+  if (/manufacturer\s*:?\s*merch on demand/i.test(det) || /brand\s*:?\s*merch on demand/i.test(det)) return "manufacturer";
+  let ld = "";
+  $('script[type="application/ld+json"]').each((_, s) => {
+    try {
+      const obj = JSON.parse($(s).contents().text());
+      const arr = Array.isArray(obj) ? obj : [obj];
+      for (const x of arr) {
+        const b = (x?.brand?.name || x?.brand || x?.manufacturer || "").toString().toLowerCase();
+        if (b.includes("merch on demand") || b.includes("merch by amazon")) { ld = "jsonld"; break; }
+      }
+    } catch {}
+  });
+  return ld || null;
 }
 
 export async function fetchHTML(url: string) {
@@ -30,21 +68,42 @@ export async function fetchHTML(url: string) {
   return html;
 }
 
-export async function collectFromSearch(keyword: string, pages = 1): Promise<string[]> {
+/**
+ * Discover product URLs from Amazon Best Sellers (zgbs) pages.
+ * Configure paths via env ZGBS_PATHS (comma-separated). Defaults target Fashion subtrees.
+ */
+export async function collectFromZgbs(maxUrls = 600, pagesPerPath = 5): Promise<string[]> {
+  const defaults = [
+    "/Best-Sellers/zgbs", // global
+    "/Best-Sellers-Clothing-Shoes-Jewelry/zgbs/fashion",
+    "/Best-Sellers-Mens-Fashion/zgbs/fashion/7147441011",
+    "/Best-Sellers-Womens-Fashion/zgbs/fashion/7147440011",
+    "/Best-Sellers-Boys-Fashion/zgbs/fashion/7147443011",
+    "/Best-Sellers-Girls-Fashion/zgbs/fashion/7147442011",
+    "/Best-Sellers-Novelty-More/zgbs/fashion/12035955011",
+    "/Best-Sellers-Mens-Fashion-T-Shirts/zgbs/fashion/1040658",
+    "/Best-Sellers-Womens-Fashion-T-Shirts/zgbs/fashion/1258644011"
+  ];
+  const raw = process.env.ZGBS_PATHS?.split(",").map(s => s.trim()).filter(Boolean);
+  const paths = raw && raw.length ? raw : defaults;
+
   const urls = new Set<string>();
-  for (let p = 1; p <= pages; p++) {
-    const q = new URLSearchParams({ k: keyword, i: "fashion", s: "featured-rank", page: String(p) });
-    const html = await fetchHTML(`${BASE}/s?${q.toString()}`);
-    const $ = cheerio.load(html);
-    $("a.a-link-normal.s-no-outline, h2 a.a-link-normal").each((_, a) => {
-      const href = $(a).attr("href");
-      if (!href) return;
-      const full = new URL(href, BASE).toString().split("?")[0];
-      if (full.includes("/dp/")) urls.add(full);
-    });
-    await new Promise(r => setTimeout(r, 4000));
+  for (const path of paths) {
+    for (let p = 1; p <= pagesPerPath; p++) {
+      const url = `${BASE}${path}?pg=${p}`;
+      const html = await fetchHTML(url);
+      const $ = cheerio.load(html);
+      $('a.a-link-normal[href*="/dp/"]').each((_, a) => {
+        const href = $(a).attr("href");
+        if (!href) return;
+        const full = new URL(href, BASE).toString().split("?")[0];
+        if (full.includes("/dp/")) urls.add(full);
+      });
+      await new Promise(r => setTimeout(r, 2500));
+      if (urls.size >= maxUrls) return Array.from(urls).slice(0, maxUrls);
+    }
   }
-  return [...urls];
+  return Array.from(urls).slice(0, maxUrls);
 }
 
 export type Product = {
@@ -60,6 +119,7 @@ export type Product = {
   image_url: string | null;
   bullet1: string | null;
   bullet2: string | null;
+  merch_flag_source: string | null;
 };
 
 export async function parseProduct(url: string): Promise<Product | null> {
@@ -78,24 +138,15 @@ export async function parseProduct(url: string): Promise<Product | null> {
     ($("#acrCustomerReviewText").first().text() ||
       $("a[data-hook='see-all-reviews-link-foot']").first().text()) || undefined;
 
-  const ratingNum = (() => {
-    const m = ratingTxt?.match(/[\d.]+/);
-    return m ? parseFloat(m[0]) : null;
-  })();
+  const ratingNum = (() => { const m = ratingTxt?.match(/[\d.]+/); return m ? parseFloat(m[0]) : null; })();
+  const reviewsCount = (() => { const s = rcTxt?.replace(/[^\d]/g, ""); return s ? parseInt(s, 10) : null; })();
 
-  const reviewsCount = (() => {
-    const s = rcTxt?.replace(/[^\d]/g, "");
-    return s ? parseInt(s, 10) : null;
-  })();
-
-  // image url
   const image_url =
     $("#imgTagWrapperId img").attr("src") ||
     $("#landingImage").attr("src") ||
     $('meta[property="og:image"]').attr("content") ||
     null;
 
-  // bullet points 1 and 2
   const bullets = $("#feature-bullets li:not(.aok-hidden)")
     .map((_, li) => $(li).text().replace(/\s+/g, " ").trim())
     .get()
@@ -117,6 +168,7 @@ export async function parseProduct(url: string): Promise<Product | null> {
     url,
     image_url,
     bullet1,
-    bullet2
+    bullet2,
+    merch_flag_source: merchSource($)
   };
 }
