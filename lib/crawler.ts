@@ -48,8 +48,18 @@ export async function collectFromSearch(keyword: string, pages = 1): Promise<str
 }
 
 export type Product = {
-  asin: string | null; title: string | null; brand: string | null; price_cents: number | null;
-  rating: number | null; reviews_count: number | null; bsr: number | null; bsr_category: string | null; url: string;
+  asin: string | null;
+  title: string | null;
+  brand: string | null;
+  price_cents: number | null;
+  rating: number | null;
+  reviews_count: number | null;
+  bsr: number | null;
+  bsr_category: string | null;
+  url: string;
+  image_url: string | null;
+  bullet1: string | null;
+  bullet2: string | null;
 };
 
 export async function parseProduct(url: string): Promise<Product | null> {
@@ -78,14 +88,35 @@ export async function parseProduct(url: string): Promise<Product | null> {
     return s ? parseInt(s, 10) : null;
   })();
 
+  // image url
+  const image_url =
+    $("#imgTagWrapperId img").attr("src") ||
+    $("#landingImage").attr("src") ||
+    $('meta[property="og:image"]').attr("content") ||
+    null;
+
+  // bullet points 1 and 2
+  const bullets = $("#feature-bullets li:not(.aok-hidden)")
+    .map((_, li) => $(li).text().replace(/\s+/g, " ").trim())
+    .get()
+    .filter(Boolean);
+  const bullet1 = bullets[0] ?? null;
+  const bullet2 = bullets[1] ?? null;
+
   const { rank, cat } = parseBSR($);
 
   return {
     asin: asinMatch ? asinMatch[1].toUpperCase() : null,
-    title, brand,
+    title,
+    brand,
     price_cents: moneyToCents(price),
     rating: ratingNum,
     reviews_count: reviewsCount,
-    bsr: rank, bsr_category: cat, url
+    bsr: rank,
+    bsr_category: cat,
+    url,
+    image_url,
+    bullet1,
+    bullet2
   };
 }

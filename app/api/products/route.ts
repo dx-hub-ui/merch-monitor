@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-
 export const runtime = "edge";
 
 export async function GET(req: NextRequest) {
@@ -15,8 +14,9 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await supabase
     .from("merch_products")
-    .select("asin,title,brand,bsr,bsr_category,rating,reviews_count,price_cents,url,last_seen")
-    .ilike("title", `%${q}%`)
+    .select("asin,title,brand,image_url,bullet1,bullet2,bsr,bsr_category,rating,reviews_count,price_cents,url,last_seen")
+    .or(`title.ilike.%${q}%,brand.ilike.%${q}%`)
+    .order("bsr", { ascending: true, nullsFirst: false })
     .limit(limit);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
