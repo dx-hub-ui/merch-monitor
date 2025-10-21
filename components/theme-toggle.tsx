@@ -13,7 +13,7 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={toggle}
-      className="rounded-full border border-slate-300 bg-white/80 px-3 py-1 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+      className="rounded-full border border-white/30 bg-white/10 px-3 py-1 text-sm font-medium text-white shadow-sm backdrop-blur transition hover:bg-white/20 focus-visible:ring-white/70 focus-visible:ring-offset-0"
       aria-label="Toggle dark mode"
     >
       {theme === "dark" ? "Light" : "Dark"} mode

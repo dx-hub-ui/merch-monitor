@@ -70,6 +70,10 @@ The crawler targets Amazon Best Seller (zgbs) paths and performs strict merch de
 
 All pages are responsive, accessible, and support dark mode via the header toggle. APIs respond from the Edge runtime and return arrays; on internal errors the response is an empty array with an `x-error` header.
 
+## Visual design
+
+The application adopts a violet-forward palette inspired by the shared concept art: a deep indigo to electric purple gradient envelopes each page, while surface elements float on soft, blurred glass panels. Interactive accents use the updated `brand` Tailwind color tokens (`brand.light`, `brand`, `brand.dark`, `brand.deeper`) so buttons, focus states, and charts inherit the new scheme automatically in both light and dark themes.
+
 ## Testing
 
 - `npm run test:unit` covers crawler helpers, BSR parsing, and momentum scoring.
