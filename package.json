@@ -1,27 +1,57 @@
 {
-  "name": "merch-monitor",
+  "name": "merch-watcher",
   "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "crawl": "tsx crawler/run.ts"
+    "lint": "next lint",
+    "test": "vitest run",
+    "test:unit": "vitest run --dir tests/unit",
+    "test:integration": "vitest run --dir tests/integration",
+    "test:e2e": "playwright test",
+    "crawl": "tsx crawler/run.ts",
+    "embed": "tsx scripts/embed.ts",
+    "metrics": "tsx scripts/metrics.ts"
   },
   "dependencies": {
+    "@supabase/auth-helpers-nextjs": "^0.10.0",
+    "@supabase/ssr": "^0.5.0",
     "@supabase/supabase-js": "^2.45.4",
+    "chart.js": "^4.4.6",
     "cheerio": "^1.0.0",
+    "clsx": "^2.1.1",
+    "date-fns": "^3.6.0",
+    "lodash-es": "^4.17.21",
     "next": "14.2.33",
+    "next-themes": "^0.2.1",
+    "openai": "^4.58.1",
     "pg": "^8.12.0",
     "playwright": "^1.48.2",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-chartjs-2": "^5.3.0",
+    "react-dom": "^18.3.1",
+    "swr": "^2.2.5",
+    "tailwind-merge": "^2.5.2",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.48.2",
     "@types/node": "^20.16.11",
+    "@types/pg": "^8.15.5",
     "@types/react": "^18.3.10",
     "@types/react-dom": "^18.3.0",
+    "@typescript-eslint/eslint-plugin": "7.2.0",
+    "@typescript-eslint/parser": "7.2.0",
+    "autoprefixer": "^10.4.20",
+    "eslint": "8.56.0",
+    "eslint-config-next": "14.2.11",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.14",
     "ts-node": "^10.9.2",
-    "typescript": "^5.6.3"
+    "tsx": "^4.19.2",
+    "typescript": "5.4.5",
+    "vitest": "^2.1.3"
   }
 }

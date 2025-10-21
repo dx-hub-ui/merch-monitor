@@ -1,22 +1,22 @@
 import { chromium } from "playwright";
 import * as cheerio from "cheerio";
 
-const UA = "PersonalResearchBot/1.0 (+contact:youremail)";
+const UA = "MerchWatcherBot/1.0 (+https://merchwatcher.com/contact)";
 const BASE = "https://www.amazon.com";
 
-function moneyToCents(txt?: string | null) {
+export function moneyToCents(txt?: string | null) {
   if (!txt) return null;
   const m = txt.replace(/[^\d.]/g, "");
   return m ? Math.round(parseFloat(m) * 100) : null;
 }
-function parseBSR($: cheerio.CheerioAPI) {
+export function parseBSR($: cheerio.CheerioAPI) {
   const text = $("body").text();
   const m = text.match(/Best Sellers Rank\s*#([\d,]+)\s*in\s*([^\(]+)/i);
   return m ? { rank: parseInt(m[1].replace(/,/g, ""), 10), cat: m[2].trim() } : { rank: null, cat: null };
 }
 
 // strict merch predicate
-function isMerch($: cheerio.CheerioAPI) {
+export function isMerch($: cheerio.CheerioAPI) {
   const t = (sel: string) => $(sel).text().toLowerCase();
   const byline = t("#bylineInfo, #brand, .po-badges, #detailBullets_feature_div, #centerCol");
   const badge = byline.includes("merch on demand") || byline.includes("merch by amazon");
@@ -37,7 +37,7 @@ function isMerch($: cheerio.CheerioAPI) {
   });
   return badge || seller || manufacturer || jsonBrand;
 }
-function merchSource($: cheerio.CheerioAPI): string | null {
+export function merchSource($: cheerio.CheerioAPI): string | null {
   const t = (sel: string) => $(sel).text().toLowerCase();
   if (t("#bylineInfo, #brand, .po-badges, #centerCol").includes("merch on demand") || t("#bylineInfo").includes("merch by amazon")) return "badge/byline";
   if (t("#merchant-info, #tabular-buybox, #shipsFromSoldBy_feature_div").includes("sold by merch on demand")) return "seller";
