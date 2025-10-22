@@ -86,6 +86,7 @@ The crawler now combines admin-configured discovery rules, per-key environment o
 
 - **Auth**: Email/password sign in & sign up. (CI/E2E can set `E2E_BYPASS_AUTH=true` to inject an admin session.)
 - **Dashboard**: Search, sort, filter (including imagery-only and the new product-type selector), grid/table switcher, responsive layout, infinite scroll.
+- **Dashboard modal**: Click any product row or card to open a quick-view modal with imagery, bullets, pricing, BSR, reviews, and outbound link helpers.
 - **Trends**: Momentum board with BSR/reviews deltas and semantic search panel.
 - **Product detail**: Product metadata, historical charts (BSR/reviews/price), similar items via pgvector.
 - **Admin / Crawler**: Admin-only control panel for discovery rules with environment override indicators and reset-to-defaults action.
