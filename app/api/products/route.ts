@@ -32,7 +32,8 @@ export async function GET(req: NextRequest) {
   let query = supabase
     .from("merch_products")
     .select(
-      "asin,title,brand,image_url,bullet1,bullet2,merch_flag_source,product_type,bsr,bsr_category,rating,reviews_count,price_cents,url,last_seen"
+      "asin,title,brand,image_url,bullet1,bullet2,merch_flag_source,product_type,bsr,bsr_category,rating,reviews_count,price_cents,url,last_seen",
+      { count: "exact" }
     )
     .range(offset, offset + limit - 1);
 
@@ -73,10 +74,10 @@ export async function GET(req: NextRequest) {
   else if (sort === "last_seen") query = query.order("last_seen", { ascending: direction });
   else query = query.order("bsr", { ascending: direction, nullsFirst: false });
 
-  const { data, error } = await query;
+  const { data, error, count } = await query;
 
   if (error) {
-    const res = NextResponse.json([], { status: 200 });
+    const res = NextResponse.json({ products: [], total: 0 }, { status: 200 });
     res.headers.set("x-error", error.message);
     return res;
   }
@@ -101,6 +102,14 @@ export async function GET(req: NextRequest) {
   >;
 
   const products = (data ?? []) as ProductRow[];
+  const total =
+    count ?? (products.length < limit ? Math.max(offset + products.length, 0) : offset + products.length + 1);
+
+  const respond = (body: { products: ProductRow[]; total: number }) => {
+    const response = NextResponse.json(body, { status: 200 });
+    response.headers.set("x-plan-tier", entitlements.planTier);
+    return response;
+  };
 
   const missingBsrAsins = products.filter(product => product.bsr == null).map(product => product.asin);
 
