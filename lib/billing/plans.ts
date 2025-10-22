@@ -58,7 +58,8 @@ export type UsageMetric = (typeof USAGE_METRICS)[keyof typeof USAGE_METRICS];
 
 export const DAILY_USAGE_LIMITS: Record<PlanTier, Record<UsageMetric, number>> = {
   basic: {
-    [USAGE_METRICS.keywordSearch]: PLAN_LIMITS.basic.keywordSearchesDaily
+    [USAGE_METRICS.keywordSearch]: PLAN_LIMITS.basic.keywordSearchesDaily,
+    [USAGE_METRICS.export]: 0
   },
   pro: {
     [USAGE_METRICS.keywordSearch]: PLAN_LIMITS.pro.keywordSearchesDaily,

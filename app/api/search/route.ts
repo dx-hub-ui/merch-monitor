@@ -4,6 +4,8 @@ import { createRouteSupabaseClient } from "@/lib/supabase/route";
 import { extractEntitlements } from "@/lib/billing/claims";
 import { enforceDailyUsage } from "@/lib/billing/usage";
 import { USAGE_METRICS } from "@/lib/billing/plans";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/supabase/types";
 
 export const runtime = "nodejs";
 
@@ -20,9 +22,10 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = createRouteSupabaseClient();
+  const typedSupabase = supabase as unknown as SupabaseClient<Database>;
   const {
     data: { user }
-  } = await supabase.auth.getUser();
+  } = await typedSupabase.auth.getUser();
 
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
@@ -30,7 +33,7 @@ export async function GET(request: NextRequest) {
 
   const entitlements = extractEntitlements(user);
   const usage = await enforceDailyUsage({
-    client: supabase,
+    client: typedSupabase,
     userId: user.id,
     planTier: entitlements.planTier,
     metric: USAGE_METRICS.keywordSearch
@@ -60,7 +63,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json([], { status: 200 });
   }
 
-  const { data, error } = await supabase.rpc("semantic_search_merch", {
+  const { data, error } = await (typedSupabase.rpc as unknown as (
+    fn: "semantic_search_merch",
+    args: Database["public"]["Functions"]["semantic_search_merch"]["Args"]
+  ) => ReturnType<typeof typedSupabase.rpc>)("semantic_search_merch", {
     query_vec: embedding,
     k: 15
   });

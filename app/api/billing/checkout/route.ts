@@ -4,6 +4,7 @@ import { getStripeClient } from "@/lib/stripe/client";
 import { createRouteSupabaseClient } from "@/lib/supabase/route";
 import type { Database } from "@/lib/supabase/types";
 import { getStripePriceIdForPlan, type PlanTier } from "@/lib/billing/plans";
+import type Stripe from "stripe";
 
 const requestSchema = z.object({
   plan: z.enum(["basic", "pro"])
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
   const { data: profile, error: profileError } = await supabase
     .from("users_profile")
     .select("plan_status,trial_ends_at,stripe_customer_id,stripe_subscription_id")
-    .eq("user_id", userId)
+    .match({ user_id: userId })
     .maybeSingle<Pick<
       Database["public"]["Tables"]["users_profile"]["Row"],
       "plan_status" | "trial_ends_at" | "stripe_customer_id" | "stripe_subscription_id"
@@ -64,8 +65,13 @@ export async function POST(request: NextRequest) {
       }
     });
     customerId = customer.id;
-    await supabase.from("users_profile").upsert({
-      user_id: user.id,
+    await (supabase.from("users_profile") as unknown as {
+      upsert: (
+        values: Database["public"]["Tables"]["users_profile"]["Insert"],
+        options?: Parameters<ReturnType<typeof supabase.from>["upsert"]>[1]
+      ) => ReturnType<ReturnType<typeof supabase.from>["upsert"]>;
+    }).upsert({
+      user_id: userId,
       stripe_customer_id: customerId
     });
   } else {
@@ -82,9 +88,9 @@ export async function POST(request: NextRequest) {
   const trialEndsAt = profile?.trial_ends_at ? new Date(profile.trial_ends_at).getTime() : null;
   const hasActiveTrial = typeof trialEndsAt === "number" && trialEndsAt > now;
 
-  const subscriptionData: Parameters<typeof stripe.checkout.sessions.create>[0]["subscription_data"] = {
+  const subscriptionData: Stripe.Checkout.SessionCreateParams.SubscriptionData = {
     metadata: {
-      supabase_user_id: user.id,
+      supabase_user_id: userId,
       plan
     }
   };

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createRouteSupabaseClient } from "@/lib/supabase/route";
 import { extractEntitlements } from "@/lib/billing/claims";
+import type { Database } from "@/lib/supabase/types";
 
 export const runtime = "nodejs";
 
@@ -32,21 +33,48 @@ export async function GET(req: NextRequest, { params }: { params: { asin: string
     : Math.min(maxHistoryDays, 7);
   const since = new Date(Date.now() - effectiveWindow * 24 * 60 * 60 * 1000).toISOString();
 
+  const typedAsin = asin as Database["public"]["Tables"]["merch_products"]["Row"]["asin"];
+
+  const productQuery = supabase.from("merch_products").select("*");
+  const historyQuery = supabase
+    .from("merch_products_history")
+    .select("captured_at,price_cents,rating,reviews_count,bsr")
+    .gte("captured_at", since)
+    .order("captured_at", { ascending: true });
+
   const [{ data: product, error: productError }, { data: history, error: historyError }] = await Promise.all([
-    supabase.from("merch_products").select("*").eq("asin", asin).maybeSingle(),
-    supabase
-      .from("merch_products_history")
-      .select("captured_at,price_cents,rating,reviews_count,bsr")
-      .eq("asin", asin)
-      .gte("captured_at", since)
-      .order("captured_at", { ascending: true })
+    (productQuery as unknown as {
+      eq: (
+        column: "asin",
+        value: Database["public"]["Tables"]["merch_products"]["Row"]["asin"]
+      ) => typeof productQuery;
+      maybeSingle: typeof productQuery.maybeSingle;
+    })
+      .eq("asin", typedAsin)
+      .maybeSingle(),
+    (historyQuery as unknown as {
+      eq: (
+        column: "asin",
+        value: Database["public"]["Tables"]["merch_products_history"]["Row"]["asin"]
+      ) => typeof historyQuery;
+    })
+      .eq(
+        "asin",
+        typedAsin as Database["public"]["Tables"]["merch_products_history"]["Row"]["asin"]
+      )
   ]);
+
+  const typedProduct = product as Database["public"]["Tables"]["merch_products"]["Row"] | null;
+  const typedHistory = (history ?? []) as Pick<
+    Database["public"]["Tables"]["merch_products_history"]["Row"],
+    "captured_at" | "price_cents" | "rating" | "reviews_count" | "bsr"
+  >[];
 
   if (productError) {
     return NextResponse.json({ error: productError.message }, { status: 500 });
   }
 
-  if (!product) {
+  if (!typedProduct) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
@@ -54,21 +82,37 @@ export async function GET(req: NextRequest, { params }: { params: { asin: string
     return NextResponse.json({ error: historyError.message }, { status: 500 });
   }
 
-  let enrichedProduct = product;
+  let enrichedProduct = typedProduct;
 
   if (enrichedProduct.bsr == null) {
-    const { data: metric } = await supabase
-      .from("merch_trend_metrics")
-      .select("asin,bsr_now")
-      .eq("asin", asin)
+    const metricQuery = supabase.from("merch_trend_metrics").select("asin,bsr_now");
+    const { data: metric } = await (metricQuery as unknown as {
+      eq: (
+        column: "asin",
+        value: Database["public"]["Tables"]["merch_trend_metrics"]["Row"]["asin"]
+      ) => typeof metricQuery;
+      maybeSingle: typeof metricQuery.maybeSingle;
+    })
+      .eq(
+        "asin",
+        typedAsin as Database["public"]["Tables"]["merch_trend_metrics"]["Row"]["asin"]
+      )
       .maybeSingle();
 
-    if (metric?.bsr_now != null) {
-      enrichedProduct = { ...enrichedProduct, bsr: metric.bsr_now };
+    const typedMetric = metric as Pick<
+      Database["public"]["Tables"]["merch_trend_metrics"]["Row"],
+      "bsr_now"
+    > | null;
+
+    if (typedMetric?.bsr_now != null) {
+      enrichedProduct = { ...enrichedProduct, bsr: typedMetric.bsr_now };
     }
   }
 
-  const response = NextResponse.json({ product: enrichedProduct, history: history ?? [], window_days: effectiveWindow }, { status: 200 });
+  const response = NextResponse.json(
+    { product: enrichedProduct, history: typedHistory, window_days: effectiveWindow },
+    { status: 200 }
+  );
   response.headers.set("x-plan-tier", entitlements.planTier);
   return response;
 }

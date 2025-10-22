@@ -37,10 +37,18 @@ export async function getBillingSummary(): Promise<BillingSummary> {
     throw new Error("AUTH_REQUIRED");
   }
 
-  const { data: profile } = await supabase
+  const profileQuery = supabase
     .from("users_profile")
-    .select("plan_tier,plan_status,trial_ends_at,seats,stripe_subscription_id")
-    .eq("user_id", user.id)
+    .select("plan_tier,plan_status,trial_ends_at,seats,stripe_subscription_id");
+
+  const { data: profile } = await (profileQuery as unknown as {
+    eq: (
+      column: "user_id",
+      value: Database["public"]["Tables"]["users_profile"]["Row"]["user_id"]
+    ) => typeof profileQuery;
+    maybeSingle: typeof profileQuery.maybeSingle;
+  })
+    .eq("user_id", user.id as Database["public"]["Tables"]["users_profile"]["Row"]["user_id"])
     .maybeSingle<Pick<
       Database["public"]["Tables"]["users_profile"]["Row"],
       "plan_tier" | "plan_status" | "trial_ends_at" | "seats" | "stripe_subscription_id"
@@ -48,14 +56,28 @@ export async function getBillingSummary(): Promise<BillingSummary> {
 
   const entitlements = extractEntitlements(user, profile ?? undefined);
   const today = new Date().toISOString().slice(0, 10);
-  const { data: usageRows } = await supabase
-    .from("usage_counters")
-    .select("metric,used,limit")
-    .eq("user_id", user.id)
-    .eq("date", today);
+  const usageQuery = supabase.from("usage_counters").select("metric,used,limit");
+  const usageByUser = (usageQuery as unknown as {
+    eq: (
+      column: "user_id",
+      value: Database["public"]["Tables"]["usage_counters"]["Row"]["user_id"]
+    ) => typeof usageQuery;
+  }).eq("user_id", user.id as Database["public"]["Tables"]["usage_counters"]["Row"]["user_id"]);
+
+  const { data: usageRows } = await (usageByUser as unknown as {
+    eq: (
+      column: "date",
+      value: Database["public"]["Tables"]["usage_counters"]["Row"]["date"]
+    ) => typeof usageByUser;
+  }).eq("date", today as Database["public"]["Tables"]["usage_counters"]["Row"]["date"]);
+
+  const typedUsageRows = (usageRows ?? []) as Pick<
+    Database["public"]["Tables"]["usage_counters"]["Row"],
+    "metric" | "used" | "limit"
+  >[];
 
   const usageMap = new Map<string, { used: number; limit: number }>();
-  for (const row of usageRows ?? []) {
+  for (const row of typedUsageRows) {
     usageMap.set(row.metric, { used: row.used, limit: row.limit });
   }
 

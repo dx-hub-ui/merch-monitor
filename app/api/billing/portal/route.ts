@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripeClient } from "@/lib/stripe/client";
 import { createRouteSupabaseClient } from "@/lib/supabase/route";
+import type { Database } from "@/lib/supabase/types";
 
 export const runtime = "nodejs";
 
@@ -14,10 +15,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const { data: profile, error } = await supabase
-    .from("users_profile")
-    .select("stripe_customer_id")
-    .eq("user_id", user.id)
+  const profileQuery = supabase.from("users_profile").select("stripe_customer_id");
+  const { data: profile, error } = await (profileQuery as unknown as {
+    eq: (
+      column: "user_id",
+      value: Database["public"]["Tables"]["users_profile"]["Row"]["user_id"]
+    ) => typeof profileQuery;
+    maybeSingle: typeof profileQuery.maybeSingle;
+  })
+    .eq("user_id", user.id as Database["public"]["Tables"]["users_profile"]["Row"]["user_id"])
     .maybeSingle<{ stripe_customer_id: string | null }>();
 
   if (error) {

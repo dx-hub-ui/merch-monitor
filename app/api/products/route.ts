@@ -3,6 +3,7 @@ import { PRODUCT_TYPES } from "@/lib/crawler-settings";
 import { parseBsrFilters } from "@/lib/bsr";
 import { createRouteSupabaseClient } from "@/lib/supabase/route";
 import { extractEntitlements } from "@/lib/billing/claims";
+import type { Database } from "@/lib/supabase/types";
 
 export const runtime = "nodejs";
 
@@ -44,7 +45,15 @@ export async function GET(req: NextRequest) {
   }
 
   if (normalisedType) {
-    query = query.eq("product_type", normalisedType);
+    query = (query as unknown as {
+      eq: (
+        column: "product_type",
+        value: Database["public"]["Tables"]["merch_products"]["Row"]["product_type"]
+      ) => typeof query;
+    }).eq(
+      "product_type",
+      normalisedType as Database["public"]["Tables"]["merch_products"]["Row"]["product_type"]
+    );
   }
 
   if (bsrMin != null || bsrMax != null) {
@@ -72,7 +81,26 @@ export async function GET(req: NextRequest) {
     return res;
   }
 
-  const products = data ?? [];
+  type ProductRow = Pick<
+    Database["public"]["Tables"]["merch_products"]["Row"],
+    | "asin"
+    | "title"
+    | "brand"
+    | "image_url"
+    | "bullet1"
+    | "bullet2"
+    | "merch_flag_source"
+    | "product_type"
+    | "bsr"
+    | "bsr_category"
+    | "rating"
+    | "reviews_count"
+    | "price_cents"
+    | "url"
+    | "last_seen"
+  >;
+
+  const products = (data ?? []) as ProductRow[];
 
   const missingBsrAsins = products.filter(product => product.bsr == null).map(product => product.asin);
 
@@ -80,16 +108,22 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(products, { status: 200 });
   }
 
-  const { data: metrics } = await supabase
-    .from("merch_trend_metrics")
-    .select("asin,bsr_now")
+  const metricsQuery = supabase.from("merch_trend_metrics").select("asin,bsr_now");
+  const { data: metrics } = await (metricsQuery as unknown as {
+    in: (column: "asin", values: string[]) => typeof metricsQuery;
+  })
     .in("asin", missingBsrAsins);
+
+  const typedMetrics = (metrics ?? []) as Pick<
+    Database["public"]["Tables"]["merch_trend_metrics"]["Row"],
+    "asin" | "bsr_now"
+  >[];
 
   if (!metrics?.length) {
     return NextResponse.json(products, { status: 200 });
   }
 
-  const bsrByAsin = new Map(metrics.map(metric => [metric.asin, metric.bsr_now] as const));
+  const bsrByAsin = new Map(typedMetrics.map(metric => [metric.asin, metric.bsr_now] as const));
 
   const enriched = products.map(product => ({
     ...product,
