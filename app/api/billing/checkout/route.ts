@@ -35,10 +35,12 @@ export async function POST(request: NextRequest) {
 
   const plan = parsed.data.plan as PlanTier;
 
+  const userId = user.id as Database["public"]["Tables"]["users_profile"]["Row"]["user_id"];
+
   const { data: profile, error: profileError } = await supabase
     .from("users_profile")
     .select("plan_status,trial_ends_at,stripe_customer_id,stripe_subscription_id")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .maybeSingle<Pick<
       Database["public"]["Tables"]["users_profile"]["Row"],
       "plan_status" | "trial_ends_at" | "stripe_customer_id" | "stripe_subscription_id"

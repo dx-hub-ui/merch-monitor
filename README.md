@@ -117,6 +117,7 @@ Every keyword exploration request (`POST /api/keywords/explore`) normalises inpu
 - **Product detail**: Product metadata, historical charts (BSR/reviews/price), similar items via pgvector.
 - **Admin / Crawler**: Admin-only control panel for discovery rules with environment override indicators and reset-to-defaults action.
 - **Account**: Plan summary with live usage meters, checkout/portal actions, change password, and sign out. The `/api/me/entitlements` endpoint that powers this view runs on the Node.js runtime so it can safely use the full Supabase server client without Edge runtime shims.
+- **Billing API notes**: The billing route handlers (`/api/billing/*`) run on the Node.js runtime and use the typed Supabase server client. Cast the authenticated `user.id` to `Database["public"]["Tables"]["users_profile"]["Row"]["user_id"]` before composing filters so TypeScript preserves the table-aware column inference during upgrades.
 - **Header navigation**: Persistent links to Dashboard, Trends, and the Keywords intelligence suite (plus the admin Crawler when applicable) across desktop and mobile.
 
 All pages are responsive, accessible, and support dark mode via the header toggle. APIs respond from the Edge runtime and return arrays; on internal errors the response is an empty array with an `x-error` header.
