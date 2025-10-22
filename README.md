@@ -49,6 +49,7 @@ Run the base migration against your Supabase database:
 psql "$SUPABASE_DB_URL" -f supabase/migrations/0001_init.sql
 psql "$SUPABASE_DB_URL" -f supabase/migrations/0002_product_type_and_crawler_settings.sql
 psql "$SUPABASE_DB_URL" -f supabase/migrations/0003_keywords.sql
+psql "$SUPABASE_DB_URL" -f supabase/migrations/0004_keyword_lists.sql
 ```
 
 The migrations install `pgvector`, create the `merch_*` tables, history trigger, keyword intelligence schema, semantic search RPCs, and Row Level Security policies. They are idempotent and safe to reapply.
@@ -94,6 +95,7 @@ The crawler now combines admin-configured discovery rules, per-key environment o
 - `scripts/serp.ts` ingests queued keyword jobs, crawls 2–5 SERP pages via Playwright (respecting ≥300 ms throttles plus jitter), verifies strict Merch-on-Demand signals on detail pages, and stores full snapshots in `keyword_serp_snapshot`.
 - `scripts/metrics.ts` also aggregates the most recent snapshots into `keyword_metrics_daily`, applying competition/difficulty/opportunity scoring, entropy-based diversity, price IQR, and 7d/30d momentum deltas.
 - `scripts/embed_keywords.ts` back-fills and refreshes OpenAI embeddings for keyword+alias strings so semantic expansion stays in sync with the autocomplete corpus.
+- Keyword list management persists to `keyword_lists` and `keyword_list_items`, enabling private campaign sets, launch cohorts, and research groups per user.
 
 Every keyword exploration request (`POST /api/keywords/explore`) normalises input, merges autocomplete/semantic neighbours, classifies intent, enqueues SERP jobs for stale terms, and caches the response for ten minutes. Companion endpoints expose related terms, top opportunities, and SERP snapshots for dashboard pages.
 
@@ -101,7 +103,7 @@ Every keyword exploration request (`POST /api/keywords/explore`) normalises inpu
 
 - **Auth**: Email/password sign in & sign up. (CI/E2E can set `E2E_BYPASS_AUTH=true` to inject an admin session.)
 - **Dashboard**: Search, sort, filter (including imagery-only and the new product-type selector), grid/table switcher, responsive layout, infinite scroll.
-- **Keywords**: `/keywords/explore` for live expansion, difficulty/opportunity chips, and SERP previews; `/keywords/top` for sortable daily opportunity rankings; `/keywords/[term]` for 30-day difficulty/momentum sparklines, top-10 SERP cards, and cross-linked related queries.
+- **Keywords**: `/keywords/explore` unifies live expansion, difficulty/opportunity chips, SERP previews, and private keyword lists with clipboard export and multi-list management; `/keywords/top` for sortable daily opportunity rankings; `/keywords/[term]` for 30-day difficulty/momentum sparklines, top-10 SERP cards, and cross-linked related queries.
 - **Dashboard modal**: Click any product row or card to open a quick-view modal with imagery, bullets, pricing, BSR (now backfilled from the latest trend metrics when snapshots are missing), reviews, outbound link helpers, and a selectable 30/60/90 day BSR history chart.
 - **Trends**: Momentum board with BSR/reviews deltas and semantic search panel.
 - **Product detail**: Product metadata, historical charts (BSR/reviews/price), similar items via pgvector.
