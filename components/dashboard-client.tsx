@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import useSWRInfinite from "swr/infinite";
 import type { Database } from "@/lib/supabase/types";
 import { clsx } from "clsx";
@@ -72,6 +73,15 @@ export function DashboardClient() {
 
   const rows = useMemo(() => (data ? data.flat() : []), [data]);
   const hasMore = data ? data[data.length - 1]?.length === PAGE_SIZE : true;
+  const [selectedProduct, setSelectedProduct] = useState<ProductRow | null>(null);
+
+  const handleSelectProduct = (product: ProductRow) => {
+    setSelectedProduct(product);
+  };
+
+  const handleCloseModal = () => {
+    setSelectedProduct(null);
+  };
 
   return (
     <div className="flex flex-1 flex-col gap-4">
@@ -193,7 +203,11 @@ export function DashboardClient() {
       </div>
 
       <div className="flex-1 rounded-2xl border border-slate-200 bg-white/80 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/60">
-        {viewMode === "table" ? <TableView products={rows} loading={isLoading && !data?.length} /> : <GridView products={rows} loading={isLoading && !data?.length} />}
+        {viewMode === "table" ? (
+          <TableView products={rows} loading={isLoading && !data?.length} onSelect={handleSelectProduct} />
+        ) : (
+          <GridView products={rows} loading={isLoading && !data?.length} onSelect={handleSelectProduct} />
+        )}
         <div className="border-t border-slate-200 bg-slate-100/70 px-4 py-3 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-400">
           {isValidating ? "Refreshing..." : `${rows.length} products`}
         </div>
@@ -210,11 +224,21 @@ export function DashboardClient() {
       ) : (
         <p className="mx-auto text-sm text-slate-500 dark:text-slate-400">End of results</p>
       )}
+
+      {selectedProduct ? <ProductModal product={selectedProduct} onClose={handleCloseModal} /> : null}
     </div>
   );
 }
 
-function TableView({ products, loading }: { products: ProductRow[]; loading: boolean }) {
+function TableView({
+  products,
+  loading,
+  onSelect
+}: {
+  products: ProductRow[];
+  loading: boolean;
+  onSelect: (product: ProductRow) => void;
+}) {
   if (loading) {
     return <div className="h-80 animate-pulse rounded-2xl bg-slate-200/60 dark:bg-slate-800/40" aria-label="Loading products" />;
   }
@@ -234,7 +258,19 @@ function TableView({ products, loading }: { products: ProductRow[]; loading: boo
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-slate-900">
           {products.map(product => (
-            <tr key={product.asin} className="hover:bg-slate-50/80 dark:hover:bg-slate-900/40">
+            <tr
+              key={product.asin}
+              onClick={() => onSelect(product)}
+              onKeyDown={event => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onSelect(product);
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              className="cursor-pointer hover:bg-slate-50/80 focus:outline-none focus-visible:bg-slate-100/80 dark:hover:bg-slate-900/40 dark:focus-visible:bg-slate-900/50"
+            >
               <td className="max-w-[340px] whitespace-pre-line px-4 py-3">
                 <div className="flex gap-3">
                   {product.image_url ? (
@@ -251,6 +287,7 @@ function TableView({ products, loading }: { products: ProductRow[]; loading: boo
                       href={product.url}
                       target="_blank"
                       rel="noreferrer"
+                      onClick={event => event.stopPropagation()}
                       className="line-clamp-2 font-medium text-slate-900 hover:underline dark:text-slate-100"
                     >
                       {product.title ?? product.asin}
@@ -282,14 +319,34 @@ function TableView({ products, loading }: { products: ProductRow[]; loading: boo
   );
 }
 
-function GridView({ products, loading }: { products: ProductRow[]; loading: boolean }) {
+function GridView({
+  products,
+  loading,
+  onSelect
+}: {
+  products: ProductRow[];
+  loading: boolean;
+  onSelect: (product: ProductRow) => void;
+}) {
   if (loading) {
     return <div className="h-80 animate-pulse rounded-2xl bg-slate-200/60 dark:bg-slate-800/40" aria-label="Loading products" />;
   }
   return (
     <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3">
       {products.map(product => (
-        <article key={product.asin} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg dark:border-slate-800 dark:bg-slate-900/70">
+        <article
+          key={product.asin}
+          onClick={() => onSelect(product)}
+          onKeyDown={event => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              onSelect(product);
+            }
+          }}
+          role="button"
+          tabIndex={0}
+          className="flex cursor-pointer flex-col gap-3 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus-visible:-translate-y-0.5 focus-visible:shadow-lg dark:border-slate-800 dark:bg-slate-900/70"
+        >
           {product.image_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -299,7 +356,13 @@ function GridView({ products, loading }: { products: ProductRow[]; loading: bool
             />
           ) : null}
           <div className="space-y-2">
-            <a href={product.url} target="_blank" rel="noreferrer" className="line-clamp-2 text-lg font-semibold text-slate-900 hover:underline dark:text-slate-100">
+            <a
+              href={product.url}
+              target="_blank"
+              rel="noreferrer"
+              onClick={event => event.stopPropagation()}
+              className="line-clamp-2 text-lg font-semibold text-slate-900 hover:underline dark:text-slate-100"
+            >
               {product.title ?? product.asin}
             </a>
             <p className="text-sm text-slate-500 dark:text-slate-400">Brand: {product.brand ?? ""}</p>
@@ -323,6 +386,102 @@ function GridView({ products, loading }: { products: ProductRow[]; loading: bool
 
 function Th({ children }: { children: React.ReactNode }) {
   return <th scope="col" className="sticky top-0 bg-slate-100/80 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-900/80 dark:text-slate-300">{children}</th>;
+}
+
+function ProductModal({ product, onClose }: { product: ProductRow; onClose: () => void }) {
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [onClose]);
+
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Details for ${product.title ?? product.asin}`}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 px-4 py-10"
+      onClick={onClose}
+    >
+      <div
+        className="relative flex max-h-full w-full max-w-2xl flex-col gap-6 overflow-y-auto rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-950"
+        onClick={event => event.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-4 top-4 rounded-full border border-transparent bg-slate-100 p-1 text-slate-600 transition hover:bg-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+          aria-label="Close product details"
+        >
+          ✕
+        </button>
+        <div className="flex flex-col gap-5 sm:flex-row">
+          {product.image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={product.image_url}
+              alt={product.title ?? product.asin}
+              className="h-56 w-full rounded-2xl border border-slate-200 object-contain dark:border-slate-800 sm:w-56"
+            />
+          ) : null}
+          <div className="flex flex-1 flex-col gap-3">
+            <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">{product.title ?? product.asin}</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Brand: {product.brand ?? "Unknown"}</p>
+            <dl className="grid grid-cols-1 gap-2 text-sm text-slate-600 dark:text-slate-300 sm:grid-cols-2">
+              <div>
+                <dt className="font-medium text-slate-500 dark:text-slate-400">Price</dt>
+                <dd>{formatPrice(product.price_cents)}</dd>
+              </div>
+              <div>
+                <dt className="font-medium text-slate-500 dark:text-slate-400">BSR</dt>
+                <dd>{product.bsr ?? "-"}</dd>
+              </div>
+              <div>
+                <dt className="font-medium text-slate-500 dark:text-slate-400">Reviews</dt>
+                <dd>{product.reviews_count ?? "-"}</dd>
+              </div>
+              <div>
+                <dt className="font-medium text-slate-500 dark:text-slate-400">Rating</dt>
+                <dd>{product.rating ?? "-"}</dd>
+              </div>
+            </dl>
+            {product.bsr_category ? (
+              <p className="text-sm text-slate-500 dark:text-slate-400">Category: {product.bsr_category}</p>
+            ) : null}
+          </div>
+        </div>
+        <div className="space-y-3 text-sm text-slate-600 dark:text-slate-300">
+          {product.bullet1 ? <p>{product.bullet1}</p> : null}
+          {product.bullet2 ? <p>{product.bullet2}</p> : null}
+        </div>
+        <div className="flex flex-col justify-between gap-3 border-t border-slate-200 pt-4 text-sm text-slate-500 dark:border-slate-800 dark:text-slate-400 sm:flex-row sm:items-center">
+          <time dateTime={product.last_seen}>Last seen {new Date(product.last_seen).toLocaleString()}</time>
+          <a
+            href={product.url ?? undefined}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-brand px-4 py-2 font-medium text-white shadow transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/80"
+          >
+            View listing
+          </a>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
 }
 
 function formatPrice(price: number | null) {
