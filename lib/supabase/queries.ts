@@ -76,9 +76,20 @@ export async function fetchProducts(params: {
   limit?: number;
   offset?: number;
   withImages?: boolean;
+  bsrMin?: number | null;
+  bsrMax?: number | null;
 }): Promise<ProductSummary[]> {
   const supabase = createServerSupabaseClient();
-  const { search = "", sort = "bsr", direction = "asc", limit = 40, offset = 0, withImages = false } = params;
+  const {
+    search = "",
+    sort = "bsr",
+    direction = "asc",
+    limit = 40,
+    offset = 0,
+    withImages = false,
+    bsrMin = null,
+    bsrMax = null
+  } = params;
   let query = supabase
     .from("merch_products")
     .select(
@@ -91,6 +102,15 @@ export async function fetchProducts(params: {
   }
   if (withImages) {
     query = query.not("image_url", "is", null);
+  }
+  if (bsrMin != null || bsrMax != null) {
+    query = query.not("bsr", "is", null);
+  }
+  if (bsrMin != null) {
+    query = query.gte("bsr", bsrMin);
+  }
+  if (bsrMax != null) {
+    query = query.lte("bsr", bsrMax);
   }
   const ascending = direction === "asc";
   if (sort === "reviews") query = query.order("reviews_count", { ascending });

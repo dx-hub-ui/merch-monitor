@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { PRODUCT_TYPES } from "@/lib/crawler-settings";
+import { parseBsrFilters } from "@/lib/bsr";
 
 export const runtime = "edge";
 
@@ -14,6 +15,7 @@ export async function GET(req: NextRequest) {
   const withImages = (url.searchParams.get("withImages") || "false").toLowerCase() === "true";
   const typeFilter = url.searchParams.get("type");
   const normalisedType = typeFilter && PRODUCT_TYPES.includes(typeFilter as (typeof PRODUCT_TYPES)[number]) ? typeFilter : null;
+  const { min: bsrMin, max: bsrMax } = parseBsrFilters(url.searchParams.get("bsrMin"), url.searchParams.get("bsrMax"));
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -40,6 +42,18 @@ export async function GET(req: NextRequest) {
 
   if (normalisedType) {
     query = query.eq("product_type", normalisedType);
+  }
+
+  if (bsrMin != null || bsrMax != null) {
+    query = query.not("bsr", "is", null);
+  }
+
+  if (bsrMin != null) {
+    query = query.gte("bsr", bsrMin);
+  }
+
+  if (bsrMax != null) {
+    query = query.lte("bsr", bsrMax);
   }
 
   if (sort === "reviews") query = query.order("reviews_count", { ascending: direction });
