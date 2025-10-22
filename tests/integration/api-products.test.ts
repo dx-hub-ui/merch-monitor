@@ -8,8 +8,13 @@ const eq = vi.fn();
 const order = vi.fn();
 const inFilter = vi.fn();
 
-vi.mock("@supabase/supabase-js", () => ({
-  createClient: () => ({
+const auth = {
+  getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-1", app_metadata: { plan_tier: "basic" } } } })
+};
+
+vi.mock("@/lib/supabase/route", () => ({
+  createRouteSupabaseClient: () => ({
+    auth,
     from: (table: string) => {
       if (table === "merch_trend_metrics") {
         return {
@@ -64,8 +69,7 @@ describe("products api", () => {
     order.mockClear();
     eq.mockClear();
     inFilter.mockClear();
-    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon";
+    auth.getUser.mockClear();
   });
 
   it("returns product rows", async () => {

@@ -18,6 +18,13 @@ NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_DB_URL=postgresql://postgres:service-role@db-host:6543/postgres
 OPENAI_API_KEY=sk-...
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...
+STRIPE_PRICE_BASIC=price_basic
+STRIPE_PRICE_PRO=price_pro
+# Supabase service role key is required for cron jobs/webhooks
+SUPABASE_SERVICE_ROLE_KEY=...
 # optional crawler overrides
 MAX_ITEMS=500
 USE_BEST_SELLERS=true
@@ -49,7 +56,7 @@ Run the base migration against your Supabase database:
 psql "$SUPABASE_DB_URL" -f supabase/migrations/0001_init.sql
 psql "$SUPABASE_DB_URL" -f supabase/migrations/0002_product_type_and_crawler_settings.sql
 psql "$SUPABASE_DB_URL" -f supabase/migrations/0003_keywords.sql
-psql "$SUPABASE_DB_URL" -f supabase/migrations/0004_keyword_lists.sql
+psql "$SUPABASE_DB_URL" -f supabase/migrations/0004_billing.sql
 ```
 
 The migrations install `pgvector`, create the `merch_*` tables, history trigger, keyword intelligence schema, semantic search RPCs, and Row Level Security policies. They are idempotent and safe to reapply.
@@ -66,6 +73,8 @@ npm run metrics    # Compute momentum metrics from history snapshots
 npm run keywords:suggest # Amazon autocomplete harvesting pipeline
 npm run keywords:serp    # SERP crawler for queued keyword jobs
 npm run keywords:embed   # Generate embeddings for keyword terms
+npm run usage:reset       # Reset daily usage counters (cron safe)
+npm run usage:reset:monthly # Reapply plan limits on the first day of the month
 npm run test       # Run Vitest unit & integration suites
 npm run test:e2e   # Playwright UI smoke tests (requires running dev server)
 ```
@@ -108,7 +117,8 @@ Every keyword exploration request (`POST /api/keywords/explore`) normalises inpu
 - **Trends**: Momentum board with BSR/reviews deltas and semantic search panel.
 - **Product detail**: Product metadata, historical charts (BSR/reviews/price), similar items via pgvector.
 - **Admin / Crawler**: Admin-only control panel for discovery rules with environment override indicators and reset-to-defaults action.
-- **Account**: Change password and sign out.
+- **Account**: Plan summary with live usage meters, checkout/portal actions, change password, and sign out. The `/api/me/entitlements` endpoint that powers this view runs on the Node.js runtime so it can safely use the full Supabase server client without Edge runtime shims.
+- **Billing API notes**: The billing route handlers (`/api/billing/*`) run on the Node.js runtime and use the typed Supabase server client. Cast the authenticated `user.id` to `Database["public"]["Tables"]["users_profile"]["Row"]["user_id"]`, prefer `.match({ user_id })` for filters, and apply a narrow typed wrapper around `.upsert`/`.rpc` invocations when the generated types expand to `never` so strict Supabase typings continue to compile while the runtime behavior matches the direct SQL filter semantics.
 - **Header navigation**: Persistent links to Dashboard, Trends, and the Keywords intelligence suite (plus the admin Crawler when applicable) across desktop and mobile.
 
 All pages are responsive, accessible, and support dark mode via the header toggle. APIs respond from the Edge runtime and return arrays; on internal errors the response is an empty array with an `x-error` header.
