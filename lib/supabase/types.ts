@@ -45,6 +45,68 @@ export type Database = {
         };
         Relationships: [];
       };
+      keyword_list_items: {
+        Row: {
+          id: number;
+          list_id: string;
+          term: string;
+          normalized: string;
+          alias: string;
+          notes: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          list_id: string;
+          term: string;
+          normalized: string;
+          alias?: string;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          list_id?: string;
+          term?: string;
+          normalized?: string;
+          alias?: string;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "keyword_list_items_list_id_fkey";
+            columns: ["list_id"];
+            isOneToOne: false;
+            referencedRelation: "keyword_lists";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      keyword_lists: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          name: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          name?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       keyword_metrics_daily: {
         Row: {
           term: string;
