@@ -85,8 +85,7 @@ The crawler now combines admin-configured discovery rules, per-key environment o
 ## UI overview
 
 - **Auth**: Email/password sign in & sign up. (CI/E2E can set `E2E_BYPASS_AUTH=true` to inject an admin session.)
-- **Dashboard**: Search, sort, filter (including imagery-only and the new product-type selector), grid/table switcher, responsive layout, infinite scroll.
-- **Dashboard modal**: Click any product row or card to open a quick-view modal with imagery, bullets, pricing, BSR, reviews, and outbound link helpers.
+- **Dashboard**: Search, sort, filter (imagery-only, product-type, and BSR range clamps), grid/table switcher, responsive layout, infinite scroll.
 - **Trends**: Momentum board with BSR/reviews deltas and semantic search panel.
 - **Product detail**: Product metadata, historical charts (BSR/reviews/price), similar items via pgvector.
 - **Admin / Crawler**: Admin-only control panel for discovery rules with environment override indicators and reset-to-defaults action.
@@ -139,6 +138,7 @@ CI workflows run linting, tests, crawler, embedding, and metrics jobs. See `.git
 - Remote product imagery is allowed via the configured `next.config.mjs` host patterns; no additional experimental flags are required because Server Actions are enabled by default in Next.js 14.
 - If you change Supabase types, regenerate `lib/supabase/types.ts` with `supabase gen types typescript --linked` so that strongly typed API hooks continue to compile.
 - Supabase role checks should always go through `supabase.auth.getUser()` (not `getSession()`) so the middleware and API routes only trust server-verified identity claims when determining admin access.
+- API route helpers with shared parsing logic (such as the BSR range clamps) live in `lib/bsr.ts` so both request handlers and tests can import a single source of truth without breaking the Edge runtime export contract.
 
 ## Troubleshooting
 
