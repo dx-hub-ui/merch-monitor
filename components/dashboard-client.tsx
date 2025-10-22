@@ -8,8 +8,10 @@ import type { Database } from "@/lib/supabase/types";
 import { clsx } from "clsx";
 import { PRODUCT_TYPES } from "@/lib/crawler-settings";
 import { ProductHistoryChart, type HistoryPoint } from "./product-history-chart";
+import { BsrSlider } from "./bsr-slider";
 
 const PAGE_SIZE = 40;
+const BSR_DEFAULT_RANGE: [number, number] = [1, 500000];
 
 type ProductRow = Database["public"]["Tables"]["merch_products"]["Row"];
 
@@ -43,8 +45,7 @@ export function DashboardClient() {
   const [direction, setDirection] = useState<"asc" | "desc">("asc");
   const [withImages, setWithImages] = useState(false);
   const [productType, setProductType] = useState<string>("all");
-  const [bsrMin, setBsrMin] = useState("");
-  const [bsrMax, setBsrMax] = useState("");
+  const [bsrRange, setBsrRange] = useState<[number, number]>(BSR_DEFAULT_RANGE);
   const [viewMode, setViewMode] = useState<"table" | "grid">(() => {
     if (typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches) {
       return "grid";
@@ -65,11 +66,11 @@ export function DashboardClient() {
     if (productType !== "all") {
       params.set("type", productType);
     }
-    if (bsrMin.trim()) {
-      params.set("bsrMin", bsrMin.trim());
-    }
-    if (bsrMax.trim()) {
-      params.set("bsrMax", bsrMax.trim());
+    const isDefaultRange =
+      bsrRange[0] === BSR_DEFAULT_RANGE[0] && bsrRange[1] === BSR_DEFAULT_RANGE[1];
+    if (!isDefaultRange) {
+      params.set("bsrMin", String(bsrRange[0]));
+      params.set("bsrMax", String(bsrRange[1]));
     }
     return `/api/products?${params.toString()}`;
   };
@@ -81,7 +82,7 @@ export function DashboardClient() {
   useEffect(() => {
     setSize(1);
     mutate();
-  }, [search, sort, direction, withImages, productType, bsrMin, bsrMax, setSize, mutate]);
+  }, [search, sort, direction, withImages, productType, bsrRange[0], bsrRange[1], setSize, mutate]);
 
   const rows = useMemo(() => (data ? data.flat() : []), [data]);
   const hasMore = data ? data[data.length - 1]?.length === PAGE_SIZE : true;
@@ -148,32 +149,21 @@ export function DashboardClient() {
               ))}
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
-            Min BSR
-            <input
-              type="number"
-              min={1}
-              step={1}
-              inputMode="numeric"
-              value={bsrMin}
-              onChange={event => setBsrMin(event.target.value)}
-              placeholder="e.g. 1"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-base text-slate-900 shadow-sm focus:border-brand focus:ring-2 focus:ring-brand/60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
-            Max BSR
-            <input
-              type="number"
-              min={1}
-              step={1}
-              inputMode="numeric"
-              value={bsrMax}
-              onChange={event => setBsrMax(event.target.value)}
-              placeholder="e.g. 100000"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-base text-slate-900 shadow-sm focus:border-brand focus:ring-2 focus:ring-brand/60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-            />
-          </label>
+          <div className="flex flex-col gap-2 text-sm font-medium text-slate-700 dark:text-slate-200 sm:col-span-2 xl:col-span-3">
+            <span>BSR range</span>
+            <BsrSlider value={bsrRange} onValueChange={setBsrRange} max={BSR_DEFAULT_RANGE[1]} />
+            <div className="flex items-center justify-between text-xs font-normal text-slate-500 dark:text-slate-400">
+              <span>Min {formatNumber(bsrRange[0])}</span>
+              <button
+                type="button"
+                onClick={() => setBsrRange(BSR_DEFAULT_RANGE)}
+                className="rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/80 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                Reset
+              </button>
+              <span>Max {formatNumber(bsrRange[1])}</span>
+            </div>
+          </div>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <label className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white/60 px-3 py-2 text-sm font-medium text-slate-600 shadow-sm dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-300 sm:w-auto">
@@ -545,6 +535,10 @@ function ProductModal({ product, onClose }: { product: ProductRow; onClose: () =
 function formatPrice(price: number | null) {
   if (price == null) return "-";
   return `$${(price / 100).toFixed(2)}`;
+}
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat().format(value);
 }
 
 function formatProductType(type: string) {
