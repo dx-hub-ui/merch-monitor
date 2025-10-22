@@ -24,6 +24,20 @@ type ProductSummary = Pick<
   | "last_seen"
 >;
 
+type ProductHistoryPoint = {
+  captured_at: string;
+  price_cents: number | null;
+  rating: number | null;
+  reviews_count: number | null;
+  bsr: number | null;
+};
+
+export type ProductDetail = {
+  product: ProductRow;
+  history: ProductHistoryPoint[];
+  similar: SemanticSearchResult[];
+};
+
 type SemanticSearchResult = { asin: string; content: string; score: number };
 
 export async function getSession() {
@@ -137,17 +151,22 @@ export async function fetchTrends(limit = 50): Promise<TrendRecord[]> {
   return (data ?? []).map(normaliseTrendRecord);
 }
 
-export async function fetchProductDetail(asin: string) {
+export async function fetchProductDetail(asin: string): Promise<ProductDetail | null> {
   const supabase = createServerSupabaseClient();
   const [{ data: product, error: productError }, { data: history, error: historyError }, { data: embedding, error: embeddingError }]
- = await Promise.all([
-    supabase.from("merch_products").select("*").eq("asin", asin).maybeSingle(),
+    = await Promise.all([
+    supabase.from("merch_products").select("*").eq("asin", asin).maybeSingle<ProductRow>(),
     supabase
       .from("merch_products_history")
       .select("captured_at,price_cents,rating,reviews_count,bsr")
       .eq("asin", asin)
-      .order("captured_at", { ascending: true }),
-    supabase.from("merch_embeddings").select("embedding").eq("asin", asin).maybeSingle()
+      .order("captured_at", { ascending: true })
+      .returns<ProductHistoryPoint[]>(),
+    supabase
+      .from("merch_embeddings")
+      .select("embedding")
+      .eq("asin", asin)
+      .maybeSingle<{ embedding: number[] | null }>()
   ]);
 
   if (productError) throw productError;
@@ -158,7 +177,11 @@ export async function fetchProductDetail(asin: string) {
   let similar: SemanticSearchResult[] = [];
   const vector = embedding?.embedding as number[] | null | undefined;
   if (vector && vector.length) {
-    const { data: results, error } = await supabase.rpc("semantic_search_merch", {
+    const semanticSearchRpc = supabase.rpc as unknown as (
+      fn: "semantic_search_merch",
+      args: Database["public"]["Functions"]["semantic_search_merch"]["Args"]
+    ) => ReturnType<typeof supabase.rpc>;
+    const { data: results, error } = await semanticSearchRpc("semantic_search_merch", {
       query_vec: vector,
       k: 12
     });

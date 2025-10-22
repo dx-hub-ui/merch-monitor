@@ -47,9 +47,11 @@ Run the base migration against your Supabase database:
 
 ```bash
 psql "$SUPABASE_DB_URL" -f supabase/migrations/0001_init.sql
+psql "$SUPABASE_DB_URL" -f supabase/migrations/0002_product_type_and_crawler_settings.sql
+psql "$SUPABASE_DB_URL" -f supabase/migrations/0003_keywords.sql
 ```
 
-The migration installs `pgvector`, creates the `merch_*` tables, history trigger, semantic search RPC, and Row Level Security policies. It is idempotent and safe to reapply.
+The migrations install `pgvector`, create the `merch_*` tables, history trigger, keyword intelligence schema, semantic search RPCs, and Row Level Security policies. They are idempotent and safe to reapply.
 
 ## Scripts
 
@@ -60,6 +62,9 @@ npm run start      # Start compiled app
 npm run crawl      # Playwright crawler inserting/updating merch_products
 npm run embed      # Generate OpenAI embeddings for new/changed products
 npm run metrics    # Compute momentum metrics from history snapshots
+npm run keywords:suggest # Amazon autocomplete harvesting pipeline
+npm run keywords:serp    # SERP crawler for queued keyword jobs
+npm run keywords:embed   # Generate embeddings for keyword terms
 npm run test       # Run Vitest unit & integration suites
 npm run test:e2e   # Playwright UI smoke tests (requires running dev server)
 ```
@@ -82,10 +87,20 @@ The crawler now combines admin-configured discovery rules, per-key environment o
 
 `scripts/metrics.ts` derives 24h/7d deltas from `merch_products_history`, computes the weighted momentum score, and upserts into `merch_trend_metrics`.
 
+### Keyword intelligence
+
+- `scripts/suggest.ts` performs breadth-first Amazon autocomplete expansion for seed keywords/aliases, dedupes using NFKC-normalised tokens, and persists both the suggestion stream and canonical keyword records.
+- `scripts/serp.ts` ingests queued keyword jobs, crawls 2–5 SERP pages via Playwright (respecting ≥300 ms throttles plus jitter), verifies strict Merch-on-Demand signals on detail pages, and stores full snapshots in `keyword_serp_snapshot`.
+- `scripts/metrics.ts` also aggregates the most recent snapshots into `keyword_metrics_daily`, applying competition/difficulty/opportunity scoring, entropy-based diversity, price IQR, and 7d/30d momentum deltas.
+- `scripts/embed_keywords.ts` back-fills and refreshes OpenAI embeddings for keyword+alias strings so semantic expansion stays in sync with the autocomplete corpus.
+
+Every keyword exploration request (`POST /api/keywords/explore`) normalises input, merges autocomplete/semantic neighbours, classifies intent, enqueues SERP jobs for stale terms, and caches the response for ten minutes. Companion endpoints expose related terms, top opportunities, and SERP snapshots for dashboard pages.
+
 ## UI overview
 
 - **Auth**: Email/password sign in & sign up. (CI/E2E can set `E2E_BYPASS_AUTH=true` to inject an admin session.)
 - **Dashboard**: Search, sort, filter (including imagery-only and the new product-type selector), grid/table switcher, responsive layout, infinite scroll.
+- **Keywords**: `/keywords/explore` for live expansion, difficulty/opportunity chips, and SERP previews; `/keywords/top` for sortable daily opportunity rankings; `/keywords/[term]` for 30-day difficulty/momentum sparklines, top-10 SERP cards, and cross-linked related queries.
 - **Dashboard modal**: Click any product row or card to open a quick-view modal with imagery, bullets, pricing, BSR, reviews, outbound link helpers, and a selectable 30/60/90 day BSR history chart.
 - **Trends**: Momentum board with BSR/reviews deltas and semantic search panel.
 - **Product detail**: Product metadata, historical charts (BSR/reviews/price), similar items via pgvector.

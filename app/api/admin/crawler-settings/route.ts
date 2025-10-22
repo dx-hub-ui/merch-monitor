@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import type { PostgrestQueryBuilder } from "@supabase/postgrest-js";
+import type { Database } from "@/lib/supabase/types";
 import {
   buildEffectiveSettings,
   CRAWLER_SETTINGS_FIELDS,
@@ -93,8 +95,18 @@ async function handlePost(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const record = { id: 1, ...payload, updated_at: new Date().toISOString() };
-  const { error } = await supabase.from("crawler_settings").upsert(record, { onConflict: "id" });
+  const record: Database["public"]["Tables"]["crawler_settings"]["Insert"] = {
+    id: 1,
+    ...payload,
+    updated_at: new Date().toISOString()
+  };
+  const crawlerSettingsTable = supabase.from("crawler_settings") as unknown as PostgrestQueryBuilder<
+    { PostgrestVersion: "12" },
+    Database["public"],
+    Database["public"]["Tables"]["crawler_settings"],
+    "crawler_settings"
+  >;
+  const { error } = await crawlerSettingsTable.upsert(record, { onConflict: "id" });
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
