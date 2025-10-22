@@ -76,7 +76,7 @@ The crawler now combines admin-configured discovery rules, per-key environment o
 - **Best Sellers & Search**: crawl Fashion/Novelty ZGBS categories and optional keyword searches (with `i`, `s`, `rh`, and hidden keyword filters). All candidate URLs are canonicalised to `https://www.amazon.com/dp/ASIN` before queuing.
 - **Strict merch detection**: pages must sit within a Fashion/Novelty breadcrumb and expose one of the approved “Merch on Demand” signals (logo, badge/byline, seller info, manufacturer, or JSON-LD). Non-matching pages are discarded.
 - **Variants**: twister data, `data-dp-url` attributes, and embedded JSON are scanned for additional ASINs; unseen variants are enqueued automatically.
-- **BSR snapshots**: the crawler reads the Best Sellers Rank from both legacy and the new detail-bullets layouts so each crawl appends a `merch_products_history` record with up-to-date BSR data for downstream analysis.
+- **BSR snapshots**: the crawler reads the Best Sellers Rank from both legacy and the new detail-bullets layouts so each crawl appends a `merch_products_history` record with up-to-date BSR data for downstream analysis. When Amazon temporarily hides the rank we preserve the most recent known BSR/category so the history chart continues to reflect real-world fluctuations rather than noisy gaps.
 - **Persistence**: successful parses upsert `merch_products` and append a matching history record, updating `merch_flag_source` and the new `product_type` classification token (e.g. `hoodie`, `long-sleeve`, `tshirt`).
 - **Safety**: ≥4s throttling, media blocking, and a single JSON summary (including the final effective settings) are emitted at the end of each run.
 
