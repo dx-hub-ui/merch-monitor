@@ -137,8 +137,10 @@ CI workflows run linting, tests, crawler, embedding, and metrics jobs. See `.git
 
 - Remote product imagery is allowed via the configured `next.config.mjs` host patterns; no additional experimental flags are required because Server Actions are enabled by default in Next.js 14.
 - If you change Supabase types, regenerate `lib/supabase/types.ts` with `supabase gen types typescript --linked` so that strongly typed API hooks continue to compile.
+- Supabase role checks should always go through `supabase.auth.getUser()` (not `getSession()`) so the middleware and API routes only trust server-verified identity claims when determining admin access.
 
 ## Troubleshooting
 
 - **Failed to parse cookie string**: Older Supabase sessions stored in the browser may be base64-prefixed (e.g. `base64-eyJ...`). Both the middleware and server helpers normalise these cookies before they reach Supabase, so the error should disappear after your first request. If it persists, clear the `sb-*` cookies in your browser and try signing in again.
+- **Failed to parse URL from /api/...**: Server components now resolve the API base URL from `NEXT_PUBLIC_SITE_URL`, `NEXTAUTH_URL`, `SITE_URL`, or the current `Host` header (falling back to `http://localhost:3000`). Set one of those variables in non-local environments to avoid misrouting fetches that previously tried to call relative URLs on the server.
 - **Read-only server cookies**: When data loaders run in React Server Components, Next.js prevents cookie mutations. The Supabase helper swallows that specific runtime error so layouts can still render, but token refreshes will only occur when a Server Action or Route Handler runs.

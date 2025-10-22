@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const getSession = vi.fn();
+const getUser = vi.fn();
 const upsertFn = vi.fn();
 const selectChain = {
   maybeSingle: vi.fn()
@@ -11,7 +11,7 @@ const from = vi.fn(() => ({ select, upsert: upsertFn }));
 
 vi.mock("@/lib/supabase/server", () => ({
   createServerSupabaseClient: () => ({
-    auth: { getSession },
+    auth: { getUser },
     from
   })
 }));
@@ -19,16 +19,17 @@ vi.mock("@/lib/supabase/server", () => ({
 describe("admin crawler settings route", () => {
   beforeEach(() => {
     process.env.E2E_BYPASS_AUTH = "false";
-    getSession.mockResolvedValue({ data: { session: null } });
     selectChain.maybeSingle.mockResolvedValue({ data: null, error: null });
     upsertFn.mockResolvedValue({ error: null });
     select.mockClear();
     upsertFn.mockClear();
     from.mockClear();
+    getUser.mockClear();
+    getUser.mockResolvedValue({ data: { user: null } });
   });
 
   it("returns stored settings with effective values", async () => {
-    getSession.mockResolvedValue({ data: { session: { user: { app_metadata: { is_admin: true } } } } });
+    getUser.mockResolvedValue({ data: { user: { app_metadata: { is_admin: true } } } });
     selectChain.maybeSingle.mockResolvedValue({
       data: { use_best_sellers: false, max_items: 200 },
       error: null
@@ -42,7 +43,7 @@ describe("admin crawler settings route", () => {
   });
 
   it("forbids non-admin updates", async () => {
-    getSession.mockResolvedValue({ data: { session: { user: { app_metadata: {} } } } });
+    getUser.mockResolvedValue({ data: { user: { app_metadata: {} } } });
     const { POST } = await import("@/app/api/admin/crawler-settings/route");
     const request = new NextRequest("http://localhost/api/admin/crawler-settings", {
       method: "POST",
@@ -54,7 +55,7 @@ describe("admin crawler settings route", () => {
   });
 
   it("allows admin updates", async () => {
-    getSession.mockResolvedValue({ data: { session: { user: { app_metadata: { is_admin: true } } } } });
+    getUser.mockResolvedValue({ data: { user: { app_metadata: { is_admin: true } } } });
     const { POST } = await import("@/app/api/admin/crawler-settings/route");
     const request = new NextRequest("http://localhost/api/admin/crawler-settings", {
       method: "POST",
