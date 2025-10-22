@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseBsrFilters } from "@/app/api/products/route";
+import { parseBsrFilters } from "@/lib/bsr";
 
 describe("parseBsrFilters", () => {
   it("returns null bounds when values are missing or invalid", () => {
