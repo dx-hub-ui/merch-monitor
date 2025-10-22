@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
 import { decodeSupabaseCookieValue } from "./cookies";
 
@@ -22,10 +23,10 @@ export function isReadonlyCookieMutationError(error: unknown): boolean {
   return false;
 }
 
-export function createServerSupabaseClient() {
+export function createServerSupabaseClient(): SupabaseClient<Database, "public"> {
   const cookieStore = cookies();
 
-  return createServerClient<Database, "public">(
+  return (createServerClient<Database, "public">(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -54,5 +55,5 @@ export function createServerSupabaseClient() {
         }
       }
     }
-  );
+  ) as unknown) as SupabaseClient<Database, "public">;
 }
