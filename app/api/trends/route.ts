@@ -1,18 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createRouteSupabaseClient } from "@/lib/supabase/route";
+import { extractEntitlements } from "@/lib/billing/claims";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
   const limit = Math.min(Math.max(parseInt(request.nextUrl.searchParams.get("limit") || "25", 10), 1), 100);
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabase = createRouteSupabaseClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
 
-  if (!supabaseUrl || !supabaseKey) {
-    return NextResponse.json([], { status: 200 });
+  if (!user) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const supabase = createClient(supabaseUrl, supabaseKey, { global: { fetch } });
+  const entitlements = extractEntitlements(user);
   const { data, error } = await supabase
     .from("merch_trend_metrics")
     .select(
@@ -27,5 +30,7 @@ export async function GET(request: NextRequest) {
     return response;
   }
 
-  return NextResponse.json(data ?? [], { status: 200 });
+  const response = NextResponse.json(data ?? [], { status: 200 });
+  response.headers.set("x-plan-tier", entitlements.planTier);
+  return response;
 }

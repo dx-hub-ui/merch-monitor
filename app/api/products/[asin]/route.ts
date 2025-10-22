@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createRouteSupabaseClient } from "@/lib/supabase/route";
+import { extractEntitlements } from "@/lib/billing/claims";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 
-const ALLOWED_WINDOWS = [30, 60, 90] as const;
+const ALLOWED_WINDOWS = [7, 30, 60, 90] as const;
 
 export async function GET(req: NextRequest, { params }: { params: { asin: string } }) {
   const asin = params.asin?.toUpperCase();
@@ -14,16 +15,22 @@ export async function GET(req: NextRequest, { params }: { params: { asin: string
   const url = new URL(req.url);
   const daysParam = parseInt(url.searchParams.get("days") ?? "90", 10);
   const windowDays = ALLOWED_WINDOWS.includes(daysParam as (typeof ALLOWED_WINDOWS)[number]) ? daysParam : 90;
-  const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
+  const supabase = createRouteSupabaseClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseKey) {
-    return NextResponse.json({ error: "Supabase credentials missing" }, { status: 500 });
+  if (!user) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const supabase = createClient(supabaseUrl, supabaseKey, { global: { fetch } });
+  const entitlements = extractEntitlements(user);
+  const maxHistoryDays = entitlements.limits.historyDays;
+  const clampedWindow = Math.max(1, Math.min(windowDays, maxHistoryDays));
+  const effectiveWindow = ALLOWED_WINDOWS.includes(clampedWindow as (typeof ALLOWED_WINDOWS)[number])
+    ? clampedWindow
+    : Math.min(maxHistoryDays, 7);
+  const since = new Date(Date.now() - effectiveWindow * 24 * 60 * 60 * 1000).toISOString();
 
   const [{ data: product, error: productError }, { data: history, error: historyError }] = await Promise.all([
     supabase.from("merch_products").select("*").eq("asin", asin).maybeSingle(),
@@ -61,5 +68,7 @@ export async function GET(req: NextRequest, { params }: { params: { asin: string
     }
   }
 
-  return NextResponse.json({ product: enrichedProduct, history: history ?? [] }, { status: 200 });
+  const response = NextResponse.json({ product: enrichedProduct, history: history ?? [], window_days: effectiveWindow }, { status: 200 });
+  response.headers.set("x-plan-tier", entitlements.planTier);
+  return response;
 }

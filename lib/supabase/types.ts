@@ -489,6 +489,90 @@ export type Database = {
         };
         Relationships: [];
       };
+      subscription_events: {
+        Row: {
+          id: number;
+          user_id: string | null;
+          type: string;
+          payload: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          user_id?: string | null;
+          type: string;
+          payload: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          user_id?: string | null;
+          type?: string;
+          payload?: Json;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      usage_counters: {
+        Row: {
+          user_id: string;
+          date: string;
+          metric: string;
+          used: number;
+          limit: number;
+        };
+        Insert: {
+          user_id: string;
+          date: string;
+          metric: string;
+          used?: number;
+          limit: number;
+        };
+        Update: {
+          user_id?: string;
+          date?: string;
+          metric?: string;
+          used?: number;
+          limit?: number;
+        };
+        Relationships: [];
+      };
+      users_profile: {
+        Row: {
+          user_id: string;
+          plan_tier: string;
+          plan_status: string;
+          seats: number;
+          trial_ends_at: string | null;
+          stripe_customer_id: string | null;
+          stripe_subscription_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          plan_tier?: string;
+          plan_status?: string;
+          seats?: number;
+          trial_ends_at?: string | null;
+          stripe_customer_id?: string | null;
+          stripe_subscription_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          plan_tier?: string;
+          plan_status?: string;
+          seats?: number;
+          trial_ends_at?: string | null;
+          stripe_customer_id?: string | null;
+          stripe_subscription_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -499,6 +583,14 @@ export type Database = {
       match_keyword_embeddings: {
         Args: { query_embedding: number[]; match_count?: number | null; target_alias?: string | null };
         Returns: { term: string; alias: string; distance: number }[];
+      };
+      increment_usage: {
+        Args: { p_user_id: string; p_metric: string; p_limit: number; p_delta?: number | null };
+        Returns: { used: number; limit: number; allowed: boolean }[];
+      };
+      reset_usage_limits: {
+        Args: { p_user_id: string; p_date: string; p_metric: string; p_limit: number };
+        Returns: unknown;
       };
     };
     Enums: Record<string, never>;

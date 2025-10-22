@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { PRODUCT_TYPES } from "@/lib/crawler-settings";
 import { parseBsrFilters } from "@/lib/bsr";
+import { createRouteSupabaseClient } from "@/lib/supabase/route";
+import { extractEntitlements } from "@/lib/billing/claims";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
@@ -17,14 +18,16 @@ export async function GET(req: NextRequest) {
   const normalisedType = typeFilter && PRODUCT_TYPES.includes(typeFilter as (typeof PRODUCT_TYPES)[number]) ? typeFilter : null;
   const { min: bsrMin, max: bsrMax } = parseBsrFilters(url.searchParams.get("bsrMin"), url.searchParams.get("bsrMax"));
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabase = createRouteSupabaseClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
 
-  if (!supabaseUrl || !supabaseKey) {
-    return NextResponse.json([], { status: 200 });
+  if (!user) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const supabase = createClient(supabaseUrl, supabaseKey, { global: { fetch } });
+  const entitlements = extractEntitlements(user);
   let query = supabase
     .from("merch_products")
     .select(
@@ -93,5 +96,7 @@ export async function GET(req: NextRequest) {
     bsr: product.bsr ?? bsrByAsin.get(product.asin) ?? null
   }));
 
-  return NextResponse.json(enriched, { status: 200 });
+  const response = NextResponse.json(enriched, { status: 200 });
+  response.headers.set("x-plan-tier", entitlements.planTier);
+  return response;
 }
