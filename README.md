@@ -107,7 +107,7 @@ Every keyword exploration request (`POST /api/keywords/explore`) normalises inpu
 - **Dashboard modal**: Click any product row or card to open a quick-view modal with imagery, bullets, pricing, BSR (now backfilled from the latest trend metrics when snapshots are missing), reviews, outbound link helpers, and a selectable 30/60/90 day BSR history chart.
 - **Trends**: Momentum board with BSR/reviews deltas and semantic search panel.
 - **Product detail**: Product metadata, historical charts (BSR/reviews/price), similar items via pgvector.
-- **Admin / Crawler**: Admin-only control panel for discovery rules with environment override indicators and reset-to-defaults action.
+- **Admin / Crawler**: Admin-only control panel for discovery rules with environment override indicators and reset-to-defaults action. The API now falls back to default settings with an `x-error` header when Supabase returns a missing session so anonymous health checks succeed without compilation warnings.
 - **Account**: Change password and sign out.
 - **Header navigation**: Persistent links to Dashboard, Trends, and the Keywords intelligence suite (plus the admin Crawler when applicable) across desktop and mobile.
 

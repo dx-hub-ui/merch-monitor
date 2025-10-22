@@ -36,23 +36,23 @@ async function fetchStoredSettingsSupabase() {
   const supabase = createServerSupabaseClient();
   const {
     data: { user },
-    error
+    error: authError
   } = await supabase.auth.getUser();
 
-  if (error && !(error instanceof AuthSessionMissingError)) {
-    throw error;
+  if (authError && !(authError instanceof AuthSessionMissingError)) {
+    throw authError;
   }
 
   const canEdit = isAdminUser(user);
 
-  const { data, error } = await supabase
+  const { data, error: fetchError } = await supabase
     .from("crawler_settings")
     .select(CRAWLER_SETTINGS_FIELDS.join(","))
     .limit(1)
     .maybeSingle();
 
-  if (error && error.code !== "PGRST116") {
-    throw error;
+  if (fetchError && fetchError.code !== "PGRST116") {
+    throw fetchError;
   }
 
   const stored = normaliseCrawlerSettings(parseSettingsRecord(data));
@@ -96,11 +96,11 @@ async function handlePost(req: NextRequest) {
   const supabase = createServerSupabaseClient();
   const {
     data: { user },
-    error
+    error: authError
   } = await supabase.auth.getUser();
 
-  if (error && !(error instanceof AuthSessionMissingError)) {
-    throw error;
+  if (authError && !(authError instanceof AuthSessionMissingError)) {
+    throw authError;
   }
 
   if (!isAdminUser(user)) {
@@ -118,9 +118,9 @@ async function handlePost(req: NextRequest) {
     Database["public"]["Tables"]["crawler_settings"],
     "crawler_settings"
   >;
-  const { error } = await crawlerSettingsTable.upsert(record, { onConflict: "id" });
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+  const { error: upsertError } = await crawlerSettingsTable.upsert(record, { onConflict: "id" });
+  if (upsertError) {
+    return NextResponse.json({ error: upsertError.message }, { status: 400 });
   }
 
   const { settings, overrides } = buildEffectiveSettings(payload, process.env);
