@@ -1,8 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createServerSupabaseClient } from "./supabase/server";
-import type { Database, Json } from "./supabase/types";
-
-export const DEFAULT_KEYWORD_ALIAS = "us";
+import { createServerSupabaseClient } from "../supabase/server";
+import type { Database, Json } from "../supabase/types";
+import {
+  DEFAULT_KEYWORD_ALIAS,
+  normaliseKeywordTerm,
+  type KeywordExploreResult,
+  type KeywordList,
+  type KeywordListItem,
+  type KeywordMetricPoint,
+  type KeywordSerpResult,
+  type KeywordSummary
+} from ".";
 
 type Supabase = SupabaseClient<Database, "public">;
 
@@ -21,99 +29,12 @@ type ListsOptions = {
   supabase?: Supabase;
 };
 
-export type KeywordMetricPoint = {
-  date: string;
-  difficulty: number;
-  opportunity: number;
-  competition: number;
-  avgBsr: number | null;
-  medBsr: number | null;
-  shareMerch: number | null;
-  avgReviews: number | null;
-  medReviews: number | null;
-  top10ReviewsP80: number | null;
-  serpDiversity: number | null;
-  priceIqr: number | null;
-  samples: number;
-  momentum7d: number | null;
-  momentum30d: number | null;
-};
-
-export type KeywordSummary = {
-  difficulty: number;
-  opportunity: number;
-  competition: number;
-  samples: number;
-  shareMerch: number | null;
-  serpDiversity: number | null;
-  avgReviews: number | null;
-  medBsr: number | null;
-  avgBsr: number | null;
-  priceIqr: number | null;
-  momentum7d: number | null;
-  momentum30d: number | null;
-};
-
-export type KeywordSerpResult = {
-  id: number;
-  asin: string;
-  title: string | null;
-  brand: string | null;
-  position: number;
-  page: number;
-  bsr: number | null;
-  reviews: number | null;
-  rating: number | null;
-  priceCents: number | null;
-  isMerch: boolean;
-  productType: string | null;
-};
-
-export type KeywordExploreResult = {
-  term: string;
-  alias: string;
-  normalized: string;
-  fetchedAt: string | null;
-  metrics: KeywordMetricPoint[];
-  serp: KeywordSerpResult[];
-  suggestions: string[];
-  relatedTerms: string[];
-  summary: KeywordSummary | null;
-};
-
-export type KeywordListItem = {
-  id: number;
-  term: string;
-  normalized: string;
-  alias: string;
-  notes: string | null;
-  createdAt: string;
-};
-
-export type KeywordList = {
-  id: string;
-  name: string;
-  createdAt: string;
-  updatedAt: string;
-  keywords: KeywordListItem[];
-};
-
-export function normaliseKeywordTerm(term: string): { original: string; normalized: string } | null {
-  if (typeof term !== "string") {
-    return null;
-  }
-  const trimmed = term.trim().replace(/\s+/g, " ");
-  if (!trimmed) {
-    return null;
-  }
-  return { original: trimmed, normalized: trimmed.toLowerCase() };
-}
-
 function createSupabaseClient(options?: { supabase?: Supabase }): Supabase {
   if (options?.supabase) {
     return options.supabase;
   }
-  return createServerSupabaseClient();
+
+  return createServerSupabaseClient() as unknown as Supabase;
 }
 
 function dedupeKeywords(keywords: string[]): string[] {
@@ -132,6 +53,7 @@ function collectKeywordsFromCache(response: Json | null, keys: string[]): string
   if (!response || typeof response !== "object") {
     return [];
   }
+
   const keywords = new Set<string>();
   const record = response as Record<string, unknown>;
 
@@ -256,7 +178,7 @@ function buildSummary(points: KeywordMetricPoint[]): KeywordSummary | null {
   };
 }
 
-function parseSuggestionRows(rows: KeywordSuggestionRow[]): string[] {
+function parseSuggestionRows(rows: Array<Pick<KeywordSuggestionRow, "term">>): string[] {
   return dedupeKeywords(rows.map(row => row.term));
 }
 
@@ -312,8 +234,9 @@ export async function fetchKeywordOverview(
   const metrics = transformMetrics(metricsRows ?? []);
   const { serp, fetchedAt: serpFetchedAt } = transformSerp(serpRows ?? []);
 
-  const cacheResponse = cacheRow?.response ?? null;
-  const cacheFetchedAt = cacheRow?.fetched_at ?? null;
+  const cacheData = (cacheRow as { response: Json | null; fetched_at: string | null } | null) ?? null;
+  const cacheResponse = cacheData?.response ?? null;
+  const cacheFetchedAt = cacheData?.fetched_at ?? null;
   const suggestionKeywords = parseSuggestionRows(suggestionsRows ?? []);
 
   const suggestionKeys = ["suggestions", "expansions", "keywords", "top", "top_terms", "opportunities"];
@@ -352,7 +275,7 @@ export async function fetchKeywordLists(userId: string, options: ListsOptions = 
   const supabase = createSupabaseClient(options);
   const { data, error } = await supabase
     .from("keyword_lists")
-    .select("id,name,created_at,updated_at,keyword_list_items(id,term,normalized,alias,notes,created_at)")
+    .select("id,user_id,name,created_at,updated_at,keyword_list_items(id,list_id,term,normalized,alias,notes,created_at)")
     .eq("user_id", userId)
     .order("created_at", { ascending: true });
 
@@ -376,5 +299,16 @@ export async function fetchKeywordLists(userId: string, options: ListsOptions = 
       }))
   }));
 
-  return lists;
+  return lists as KeywordList[];
 }
+
+export type {
+  KeywordExploreResult,
+  KeywordList,
+  KeywordListItem,
+  KeywordMetricPoint,
+  KeywordSerpResult,
+  KeywordSummary,
+  Supabase as KeywordSupabaseClient
+};
+export { DEFAULT_KEYWORD_ALIAS, normaliseKeywordTerm };

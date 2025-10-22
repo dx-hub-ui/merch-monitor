@@ -2,10 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { DEFAULT_KEYWORD_ALIAS, fetchKeywordLists, normaliseKeywordTerm } from "@/lib/keywords";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { DEFAULT_KEYWORD_ALIAS, normaliseKeywordTerm } from "@/lib/keywords";
+import { fetchKeywordLists } from "@/lib/keywords/server";
+import type { Database } from "@/lib/supabase/types";
 
-async function withAuth<T>(handler: (context: { supabase: ReturnType<typeof createServerSupabaseClient>; userId: string }) => Promise<T>): Promise<T> {
+type ServerSupabaseClient = SupabaseClient<Database, "public">;
+
+async function withAuth<T>(handler: (context: { supabase: ServerSupabaseClient; userId: string }) => Promise<T>): Promise<T> {
   const supabase = createServerSupabaseClient();
+  const typedSupabase = supabase as unknown as ServerSupabaseClient;
   const {
     data: { user },
     error
@@ -19,7 +25,7 @@ async function withAuth<T>(handler: (context: { supabase: ReturnType<typeof crea
     throw new Error("AUTH_REQUIRED");
   }
 
-  return handler({ supabase, userId: user.id });
+  return handler({ supabase: typedSupabase, userId: user.id });
 }
 
 function normaliseAlias(alias?: string) {
@@ -31,6 +37,9 @@ function triggerRevalidate() {
   revalidatePath("/keywords/explore");
 }
 
+type KeywordListInsert = Database["public"]["Tables"]["keyword_lists"]["Insert"];
+type KeywordListItemInsert = Database["public"]["Tables"]["keyword_list_items"]["Insert"];
+
 export async function createKeywordList(name: string) {
   const normalisedName = name?.trim();
   if (!normalisedName) {
@@ -38,10 +47,12 @@ export async function createKeywordList(name: string) {
   }
 
   return withAuth(async ({ supabase, userId }) => {
-    const { error } = await supabase.from("keyword_lists").insert({
+    const payload: KeywordListInsert = {
       name: normalisedName,
       user_id: userId
-    });
+    };
+
+    const { error } = await supabase.from("keyword_lists").insert(payload);
     if (error) {
       throw error;
     }
@@ -106,16 +117,16 @@ export async function addKeywordsToList(listId: string, keywords: string[], alia
       return fetchKeywordLists(userId, { supabase });
     }
 
-    const rows = Array.from(map.values()).map(entry => ({
+    const rows: KeywordListItemInsert[] = Array.from(map.values()).map(entry => ({
       list_id: listId,
       term: entry.original,
       normalized: entry.normalized,
       alias: normaliseAlias(alias)
     }));
 
-    const { error } = await supabase
-      .from("keyword_list_items")
-      .upsert(rows, { onConflict: "list_id,normalized,alias" });
+    const { error } = await supabase.from("keyword_list_items").upsert(rows, {
+      onConflict: "list_id,normalized,alias"
+    });
 
     if (error) {
       throw error;

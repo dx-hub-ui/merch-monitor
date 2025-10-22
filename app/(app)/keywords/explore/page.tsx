@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { fetchKeywordLists, fetchKeywordOverview } from "@/lib/keywords";
+import { fetchKeywordLists, fetchKeywordOverview } from "@/lib/keywords/server";
 import { getSession } from "@/lib/supabase/queries";
 import { KeywordExploreClient } from "@/components/keywords/keyword-explore-client";
 

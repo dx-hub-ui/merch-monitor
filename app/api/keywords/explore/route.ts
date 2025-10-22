@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { fetchKeywordOverview, DEFAULT_KEYWORD_ALIAS } from "@/lib/keywords";
+import { DEFAULT_KEYWORD_ALIAS } from "@/lib/keywords";
+import { fetchKeywordOverview } from "@/lib/keywords/server";
+import type { KeywordSupabaseClient } from "@/lib/keywords/server";
 import type { Database } from "@/lib/supabase/types";
 
 export const runtime = "edge";
@@ -35,7 +37,7 @@ export async function POST(request: Request) {
   try {
     const result = await fetchKeywordOverview(term, {
       alias: aliasInput ?? DEFAULT_KEYWORD_ALIAS,
-      supabase
+      supabase: supabase as unknown as KeywordSupabaseClient
     });
 
     if (!result) {

@@ -898,8 +898,7 @@ function EditableListTitle({ name, onRename }: EditableListTitleProps) {
   const [value, setValue] = useState(name);
   const [isEditing, setIsEditing] = useState(false);
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const commitRename = () => {
     const trimmed = value.trim();
     if (!trimmed || trimmed === name) {
       setIsEditing(false);
@@ -908,6 +907,16 @@ function EditableListTitle({ name, onRename }: EditableListTitleProps) {
     }
     onRename(trimmed);
     setIsEditing(false);
+    setValue(trimmed);
+  };
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    commitRename();
+  };
+
+  const handleBlur = () => {
+    commitRename();
   };
 
   if (!isEditing) {
@@ -930,7 +939,7 @@ function EditableListTitle({ name, onRename }: EditableListTitleProps) {
         onChange={event => setValue(event.target.value)}
         className="rounded-lg border border-slate-300 bg-white px-3 py-1 text-sm text-slate-900 shadow-sm focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/40 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-100"
         autoFocus
-        onBlur={handleSubmit}
+        onBlur={handleBlur}
       />
       <button
         type="submit"
