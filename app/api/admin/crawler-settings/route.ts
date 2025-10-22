@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { PostgrestQueryBuilder } from "@supabase/postgrest-js";
 import type { Database } from "@/lib/supabase/types";
+import { AuthSessionMissingError } from "@supabase/auth-js";
 import {
   buildEffectiveSettings,
   CRAWLER_SETTINGS_FIELDS,
@@ -34,18 +35,24 @@ function isBypassMode() {
 async function fetchStoredSettingsSupabase() {
   const supabase = createServerSupabaseClient();
   const {
-    data: { user }
+    data: { user },
+    error: authError
   } = await supabase.auth.getUser();
+
+  if (authError && !(authError instanceof AuthSessionMissingError)) {
+    throw authError;
+  }
+
   const canEdit = isAdminUser(user);
 
-  const { data, error } = await supabase
+  const { data, error: settingsError } = await supabase
     .from("crawler_settings")
     .select(CRAWLER_SETTINGS_FIELDS.join(","))
     .limit(1)
     .maybeSingle();
 
-  if (error && error.code !== "PGRST116") {
-    throw error;
+  if (settingsError && settingsError.code !== "PGRST116") {
+    throw settingsError;
   }
 
   const stored = normaliseCrawlerSettings(parseSettingsRecord(data));
@@ -88,8 +95,13 @@ async function handlePost(req: NextRequest) {
 
   const supabase = createServerSupabaseClient();
   const {
-    data: { user }
+    data: { user },
+    error: authError
   } = await supabase.auth.getUser();
+
+  if (authError && !(authError instanceof AuthSessionMissingError)) {
+    throw authError;
+  }
 
   if (!isAdminUser(user)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -106,9 +118,9 @@ async function handlePost(req: NextRequest) {
     Database["public"]["Tables"]["crawler_settings"],
     "crawler_settings"
   >;
-  const { error } = await crawlerSettingsTable.upsert(record, { onConflict: "id" });
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+  const { error: upsertError } = await crawlerSettingsTable.upsert(record, { onConflict: "id" });
+  if (upsertError) {
+    return NextResponse.json({ error: upsertError.message }, { status: 400 });
   }
 
   const { settings, overrides } = buildEffectiveSettings(payload, process.env);

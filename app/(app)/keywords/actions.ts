@@ -5,6 +5,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { DEFAULT_KEYWORD_ALIAS, normaliseKeywordTerm } from "@/lib/keywords";
 import { fetchKeywordLists } from "@/lib/keywords/server";
 import type { Database } from "@/lib/supabase/types";
+import { AuthSessionMissingError } from "@supabase/auth-js";
 
 type ServerSupabaseClient = ReturnType<typeof createServerSupabaseClient>;
 
@@ -15,7 +16,7 @@ async function withAuth<T>(handler: (context: { supabase: ServerSupabaseClient; 
     error
   } = await supabase.auth.getUser();
 
-  if (error) {
+  if (error && !(error instanceof AuthSessionMissingError)) {
     throw error;
   }
 
