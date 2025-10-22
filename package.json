@@ -13,7 +13,10 @@
     "test:e2e": "playwright test",
     "crawl": "tsx crawler/run.ts",
     "embed": "tsx scripts/embed.ts",
-    "metrics": "tsx scripts/metrics.ts"
+    "metrics": "tsx scripts/metrics.ts",
+    "keywords:suggest": "tsx scripts/suggest.ts",
+    "keywords:serp": "tsx scripts/serp.ts",
+    "keywords:embed": "tsx scripts/embed_keywords.ts"
   },
   "dependencies": {
     "@supabase/auth-helpers-nextjs": "^0.10.0",
