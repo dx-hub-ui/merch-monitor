@@ -26,15 +26,16 @@ describe("crawler storage", () => {
 
   beforeEach(() => {
     query.mockReset();
+    query.mockResolvedValue({ rows: [] } as never);
   });
 
   it("upserts products with product_type and merch_flag_source", async () => {
     await upsertProduct(pg, product);
-    expect(query).toHaveBeenCalledTimes(2);
-    const upsertCall = query.mock.calls[0];
+    expect(query).toHaveBeenCalledTimes(3);
+    const upsertCall = query.mock.calls[1];
     expect(upsertCall[0]).toContain("product_type");
     expect(upsertCall[1]).toContain("tshirt");
-    const historyCall = query.mock.calls[1];
+    const historyCall = query.mock.calls[2];
     expect(historyCall[0]).toContain("product_type");
     expect(historyCall[1]).toContain("logo");
   });

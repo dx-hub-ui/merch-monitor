@@ -1,7 +1,38 @@
 import type { Client } from "pg";
 import type { ParsedProduct, Product } from "@/lib/crawler";
 
+type ExistingSnapshot = {
+  bsr: number | null;
+  bsr_category: string | null;
+  merch_flag_source: string | null;
+  product_type: Product["product_type"] | null;
+};
+
+export function resolveSnapshotFields(existing: ExistingSnapshot | null, product: Product) {
+  const resolvedBsr = product.bsr ?? existing?.bsr ?? null;
+  const resolvedBsrCategory =
+    product.bsr != null
+      ? product.bsr_category ?? existing?.bsr_category ?? null
+      : existing?.bsr_category ?? product.bsr_category ?? null;
+  const resolvedMerchFlagSource = product.merch_flag_source ?? existing?.merch_flag_source ?? null;
+  const resolvedProductType = product.product_type ?? existing?.product_type ?? product.product_type;
+
+  return {
+    bsr: resolvedBsr,
+    bsr_category: resolvedBsrCategory,
+    merch_flag_source: resolvedMerchFlagSource,
+    product_type: resolvedProductType
+  };
+}
+
 export async function upsertProduct(pg: Client, product: Product) {
+  const { rows } = await pg.query<ExistingSnapshot>(
+    `select bsr, bsr_category, merch_flag_source, product_type from merch_products where asin = $1 limit 1`,
+    [product.asin]
+  );
+  const existing = rows[0] ? { ...rows[0], product_type: rows[0].product_type ?? null } : null;
+  const snapshot = resolveSnapshotFields(existing, product);
+
   await pg.query(
     `
     insert into merch_products(
@@ -32,14 +63,14 @@ export async function upsertProduct(pg: Client, product: Product) {
       product.price_cents,
       product.rating,
       product.reviews_count,
-      product.bsr,
-      product.bsr_category,
+      snapshot.bsr,
+      snapshot.bsr_category,
       product.url,
       product.image_url,
       product.bullet1,
       product.bullet2,
-      product.merch_flag_source,
-      product.product_type
+      snapshot.merch_flag_source,
+      snapshot.product_type
     ]
   );
 
@@ -54,10 +85,10 @@ export async function upsertProduct(pg: Client, product: Product) {
       product.price_cents,
       product.rating,
       product.reviews_count,
-      product.bsr,
-      product.bsr_category,
-      product.merch_flag_source,
-      product.product_type
+      snapshot.bsr,
+      snapshot.bsr_category,
+      snapshot.merch_flag_source,
+      snapshot.product_type
     ]
   );
 }
