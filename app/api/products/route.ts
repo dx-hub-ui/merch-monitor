@@ -104,33 +104,30 @@ export async function GET(req: NextRequest) {
 
   const missingBsrAsins = products.filter(product => product.bsr == null).map(product => product.asin);
 
-  if (!missingBsrAsins.length) {
-    return NextResponse.json(products, { status: 200 });
+  let resolvedProducts = products;
+
+  if (missingBsrAsins.length) {
+    const metricsQuery = supabase.from("merch_trend_metrics").select("asin,bsr_now");
+    const { data: metrics } = await (metricsQuery as unknown as {
+      in: (column: "asin", values: string[]) => typeof metricsQuery;
+    })
+      .in("asin", missingBsrAsins);
+
+    const typedMetrics = (metrics ?? []) as Pick<
+      Database["public"]["Tables"]["merch_trend_metrics"]["Row"],
+      "asin" | "bsr_now"
+    >[];
+
+    if (typedMetrics.length) {
+      const bsrByAsin = new Map(typedMetrics.map(metric => [metric.asin, metric.bsr_now] as const));
+      resolvedProducts = products.map(product => ({
+        ...product,
+        bsr: product.bsr ?? bsrByAsin.get(product.asin) ?? null
+      }));
+    }
   }
 
-  const metricsQuery = supabase.from("merch_trend_metrics").select("asin,bsr_now");
-  const { data: metrics } = await (metricsQuery as unknown as {
-    in: (column: "asin", values: string[]) => typeof metricsQuery;
-  })
-    .in("asin", missingBsrAsins);
-
-  const typedMetrics = (metrics ?? []) as Pick<
-    Database["public"]["Tables"]["merch_trend_metrics"]["Row"],
-    "asin" | "bsr_now"
-  >[];
-
-  if (!metrics?.length) {
-    return NextResponse.json(products, { status: 200 });
-  }
-
-  const bsrByAsin = new Map(typedMetrics.map(metric => [metric.asin, metric.bsr_now] as const));
-
-  const enriched = products.map(product => ({
-    ...product,
-    bsr: product.bsr ?? bsrByAsin.get(product.asin) ?? null
-  }));
-
-  const response = NextResponse.json(enriched, { status: 200 });
+  const response = NextResponse.json(resolvedProducts, { status: 200 });
   response.headers.set("x-plan-tier", entitlements.planTier);
   return response;
 }

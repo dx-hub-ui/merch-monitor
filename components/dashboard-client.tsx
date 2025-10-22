@@ -19,7 +19,7 @@ type ApiResponse = ProductRow[];
 type ProductDetailResponse = { product: ProductRow; history: HistoryPoint[] };
 
 async function fetcher(url: string) {
-  const res = await fetch(url, { cache: "no-store" });
+  const res = await fetch(url, { cache: "no-store", credentials: "include" });
   if (!res.ok) {
     const errorHeader = res.headers.get("x-error");
     console.error("API error", errorHeader);
@@ -31,7 +31,7 @@ async function fetcher(url: string) {
 }
 
 async function detailFetcher(url: string) {
-  const res = await fetch(url, { cache: "no-store" });
+  const res = await fetch(url, { cache: "no-store", credentials: "include" });
   if (!res.ok) {
     const error = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(error.error ?? "Failed to load product detail");
