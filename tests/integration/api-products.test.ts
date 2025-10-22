@@ -78,7 +78,8 @@ describe("products api", () => {
     const response = await GET(request);
     const payload = await response.json();
     expect(response.status).toBe(200);
-    expect(Array.isArray(payload)).toBe(true);
+    expect(Array.isArray(payload.products)).toBe(true);
+    expect(typeof payload.total).toBe("number");
     expect(range).toHaveBeenCalled();
     expect(order).toHaveBeenCalled();
     expect(eq).not.toHaveBeenCalled();

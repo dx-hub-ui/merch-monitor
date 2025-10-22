@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import useSWR from "swr";
-import useSWRInfinite from "swr/infinite";
 import type { Database } from "@/lib/supabase/types";
 import { clsx } from "clsx";
 import { PRODUCT_TYPES } from "@/lib/crawler-settings";
@@ -15,7 +14,7 @@ const BSR_DEFAULT_RANGE: [number, number] = [1, 500000];
 
 type ProductRow = Database["public"]["Tables"]["merch_products"]["Row"];
 
-type ApiResponse = ProductRow[];
+type ApiResponse = { products: ProductRow[]; total: number };
 type ProductDetailResponse = { product: ProductRow; history: HistoryPoint[] };
 
 async function fetcher(url: string) {
@@ -23,11 +22,17 @@ async function fetcher(url: string) {
   if (!res.ok) {
     const errorHeader = res.headers.get("x-error");
     console.error("API error", errorHeader);
-    return [];
+    return { products: [], total: 0 } as ApiResponse;
   }
   const json = await res.json();
-  if (!Array.isArray(json)) return [];
-  return json as ApiResponse;
+  if (!json || typeof json !== "object") {
+    return { products: [], total: 0 } as ApiResponse;
+  }
+  const products = Array.isArray((json as { products?: unknown }).products)
+    ? ((json as { products: ProductRow[] }).products ?? [])
+    : [];
+  const total = typeof (json as { total?: unknown }).total === "number" ? (json as { total: number }).total : 0;
+  return { products, total } as ApiResponse;
 }
 
 async function detailFetcher(url: string) {
@@ -46,6 +51,7 @@ export function DashboardClient() {
   const [withImages, setWithImages] = useState(false);
   const [productType, setProductType] = useState<string>("all");
   const [bsrRange, setBsrRange] = useState<[number, number]>(BSR_DEFAULT_RANGE);
+  const [page, setPage] = useState(1);
   const [viewMode, setViewMode] = useState<"table" | "grid">(() => {
     if (typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches) {
       return "grid";
@@ -53,14 +59,13 @@ export function DashboardClient() {
     return "table";
   });
 
-  const getKey = (pageIndex: number, previousPageData: ApiResponse | null) => {
-    if (previousPageData && previousPageData.length < PAGE_SIZE) return null;
+  const requestUrl = useMemo(() => {
     const params = new URLSearchParams({
       q: search,
       sort,
       dir: direction,
       limit: String(PAGE_SIZE),
-      offset: String(pageIndex * PAGE_SIZE),
+      offset: String((page - 1) * PAGE_SIZE),
       withImages: withImages ? "true" : "false"
     });
     if (productType !== "all") {
@@ -73,19 +78,34 @@ export function DashboardClient() {
       params.set("bsrMax", String(bsrRange[1]));
     }
     return `/api/products?${params.toString()}`;
-  };
+  }, [search, sort, direction, withImages, productType, bsrRange, page]);
 
-  const { data, isLoading, size, setSize, isValidating, mutate } = useSWRInfinite<ApiResponse>(getKey, fetcher, {
-    revalidateFirstPage: true
+  const { data, isLoading, isValidating } = useSWR<ApiResponse>(requestUrl, fetcher, {
+    keepPreviousData: true,
+    revalidateOnFocus: false
   });
 
   useEffect(() => {
-    setSize(1);
-    mutate();
-  }, [search, sort, direction, withImages, productType, bsrRange[0], bsrRange[1], setSize, mutate]);
+    setPage(current => (current === 1 ? current : 1));
+  }, [search, sort, direction, withImages, productType, bsrRange[0], bsrRange[1]]);
 
-  const rows = useMemo(() => (data ? data.flat() : []), [data]);
-  const hasMore = data ? data[data.length - 1]?.length === PAGE_SIZE : true;
+  const products = useMemo(() => data?.products ?? [], [data]);
+  const totalFromServer = data?.total ?? 0;
+  const minimumTotal = (page - 1) * PAGE_SIZE + products.length;
+  const inferredTotal = totalFromServer > 0 ? Math.max(totalFromServer, minimumTotal) : minimumTotal;
+  const totalPages = Math.max(1, Math.ceil(Math.max(inferredTotal, totalFromServer) / PAGE_SIZE));
+  const canGoPrevious = page > 1;
+  const hasUnknownMore = totalFromServer === 0 && products.length === PAGE_SIZE;
+  const canGoNext = page < totalPages || hasUnknownMore;
+  const startItem = products.length ? (page - 1) * PAGE_SIZE + 1 : 0;
+  const endItem = (page - 1) * PAGE_SIZE + products.length;
+  const isInitialLoading = isLoading && !data;
+
+  useEffect(() => {
+    if (!isInitialLoading && page > totalPages && !hasUnknownMore) {
+      setPage(totalPages);
+    }
+  }, [isInitialLoading, page, totalPages, hasUnknownMore]);
   const [selectedProduct, setSelectedProduct] = useState<ProductRow | null>(null);
 
   const handleSelectProduct = (product: ProductRow) => {
@@ -206,26 +226,53 @@ export function DashboardClient() {
 
       <div className="flex-1 rounded-2xl border border-slate-200 bg-white/80 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/60">
         {viewMode === "table" ? (
-          <TableView products={rows} loading={isLoading && !data?.length} onSelect={handleSelectProduct} />
+          <TableView products={products} loading={isInitialLoading} onSelect={handleSelectProduct} />
         ) : (
-          <GridView products={rows} loading={isLoading && !data?.length} onSelect={handleSelectProduct} />
+          <GridView products={products} loading={isInitialLoading} onSelect={handleSelectProduct} />
         )}
-        <div className="border-t border-slate-200 bg-slate-100/70 px-4 py-3 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-400">
-          {isValidating ? "Refreshing..." : `${rows.length} products`}
+        <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-100/70 px-4 py-3 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs sm:text-sm">
+            {isValidating
+              ? "Refreshing..."
+              : products.length
+              ? `Showing ${formatNumber(startItem)}–${formatNumber(endItem)} of ${formatNumber(inferredTotal)} products`
+              : "No products found"}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPage(current => Math.max(current - 1, 1))}
+              disabled={!canGoPrevious || isLoading}
+              className={clsx(
+                "rounded-full border px-3 py-1 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/80",
+                !canGoPrevious || isLoading
+                  ? "cursor-not-allowed border-slate-200 text-slate-300 dark:border-slate-800 dark:text-slate-600"
+                  : "border-slate-300 bg-white text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+              )}
+            >
+              Previous
+            </button>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+              {totalFromServer > 0
+                ? `Page ${formatNumber(page)} of ${formatNumber(totalPages)}`
+                : `Page ${formatNumber(page)}`}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPage(current => (canGoNext ? current + 1 : current))}
+              disabled={!canGoNext || isLoading}
+              className={clsx(
+                "rounded-full border px-3 py-1 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/80",
+                !canGoNext || isLoading
+                  ? "cursor-not-allowed border-slate-200 text-slate-300 dark:border-slate-800 dark:text-slate-600"
+                  : "border-slate-300 bg-white text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+              )}
+            >
+              Next
+            </button>
+          </div>
         </div>
       </div>
-
-      {hasMore ? (
-        <button
-          type="button"
-          onClick={() => setSize(size + 1)}
-          className="mx-auto mt-2 rounded-full border border-slate-300 bg-white px-5 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/80 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-        >
-          Load more
-        </button>
-      ) : (
-        <p className="mx-auto text-sm text-slate-500 dark:text-slate-400">End of results</p>
-      )}
 
       {selectedProduct ? <ProductModal product={selectedProduct} onClose={handleCloseModal} /> : null}
     </div>
