@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { PostgrestQueryBuilder } from "@supabase/postgrest-js";
 import type { Database } from "@/lib/supabase/types";
+import { AuthSessionMissingError } from "@supabase/auth-js";
 import {
   buildEffectiveSettings,
   CRAWLER_SETTINGS_FIELDS,
@@ -34,8 +35,14 @@ function isBypassMode() {
 async function fetchStoredSettingsSupabase() {
   const supabase = createServerSupabaseClient();
   const {
-    data: { user }
+    data: { user },
+    error
   } = await supabase.auth.getUser();
+
+  if (error && !(error instanceof AuthSessionMissingError)) {
+    throw error;
+  }
+
   const canEdit = isAdminUser(user);
 
   const { data, error } = await supabase
@@ -88,8 +95,13 @@ async function handlePost(req: NextRequest) {
 
   const supabase = createServerSupabaseClient();
   const {
-    data: { user }
+    data: { user },
+    error
   } = await supabase.auth.getUser();
+
+  if (error && !(error instanceof AuthSessionMissingError)) {
+    throw error;
+  }
 
   if (!isAdminUser(user)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
