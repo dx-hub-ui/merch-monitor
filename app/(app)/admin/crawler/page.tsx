@@ -1,13 +1,34 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { notFound } from "next/navigation";
 import type { CrawlerSettings, OverrideMap } from "@/lib/crawler-settings";
 import { DEFAULT_CRAWLER_SETTINGS } from "@/lib/crawler-settings";
 import { CrawlerSettingsForm } from "@/components/crawler-settings-form";
 
+function resolveBaseUrl() {
+  const headerStore = headers();
+  const envUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    process.env.NEXTAUTH_URL ??
+    process.env.SITE_URL ??
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
+  if (envUrl && envUrl.length > 0) {
+    return envUrl;
+  }
+
+  const host = headerStore.get("x-forwarded-host") ?? headerStore.get("host");
+  if (host) {
+    const protocol = headerStore.get("x-forwarded-proto") ?? "https";
+    return `${protocol}://${host}`;
+  }
+
+  return "http://localhost:3000";
+}
+
 async function loadSettings() {
   const cookieHeader = cookies().toString();
+  const baseUrl = resolveBaseUrl();
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/api/admin/crawler-settings`, {
+    const response = await fetch(new URL("/api/admin/crawler-settings", baseUrl), {
       cache: "no-store",
       headers: cookieHeader ? { cookie: cookieHeader } : undefined
     });

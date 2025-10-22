@@ -9,7 +9,7 @@ import {
   toSettingsPayload,
   type CrawlerSettings
 } from "@/lib/crawler-settings";
-import { isAdminSession } from "@/lib/auth/roles";
+import { isAdminUser } from "@/lib/auth/roles";
 
 const E2E_STORE = Symbol.for("merch-watcher.e2e-crawler-settings");
 
@@ -32,9 +32,9 @@ function isBypassMode() {
 async function fetchStoredSettingsSupabase() {
   const supabase = createServerSupabaseClient();
   const {
-    data: { session }
-  } = await supabase.auth.getSession();
-  const canEdit = isAdminSession(session);
+    data: { user }
+  } = await supabase.auth.getUser();
+  const canEdit = isAdminUser(user);
 
   const { data, error } = await supabase
     .from("crawler_settings")
@@ -86,10 +86,10 @@ async function handlePost(req: NextRequest) {
 
   const supabase = createServerSupabaseClient();
   const {
-    data: { session }
-  } = await supabase.auth.getSession();
+    data: { user }
+  } = await supabase.auth.getUser();
 
-  if (!isAdminSession(session)) {
+  if (!isAdminUser(user)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

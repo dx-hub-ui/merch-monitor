@@ -28,21 +28,23 @@ export async function middleware(request: NextRequest) {
 
   const response = NextResponse.next();
   const supabase = createMiddlewareClient<Database>({ req: request, res: response });
+  await supabase.auth.getSession();
   const {
-    data: { session }
-  } = await supabase.auth.getSession();
+    data: { user }
+  } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
   const isAuthPage = AUTH_PATHS.has(pathname);
+  const isAuthenticated = Boolean(user);
 
-  if (!session && !isAuthPage && pathname.startsWith("/")) {
+  if (!isAuthenticated && !isAuthPage && pathname.startsWith("/")) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
     redirectUrl.searchParams.set("redirectedFrom", pathname);
     return NextResponse.redirect(redirectUrl);
   }
 
-  if (session && isAuthPage) {
+  if (isAuthenticated && isAuthPage) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/";
     return NextResponse.redirect(redirectUrl);
