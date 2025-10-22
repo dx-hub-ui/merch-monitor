@@ -14,7 +14,7 @@ import { Line } from "react-chartjs-2";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Legend, Tooltip);
 
-interface HistoryPoint {
+export interface HistoryPoint {
   captured_at: string;
   price_cents: number | null;
   rating: number | null;
