@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createRouteSupabaseClient } from "@/lib/supabase/route";
 import type { Database } from "@/lib/supabase/types";
 import { extractEntitlements } from "@/lib/billing/claims";
@@ -6,7 +6,7 @@ import { DAILY_USAGE_LIMITS, PLAN_NAMES, type UsageMetric, USAGE_METRICS } from 
 
 export const runtime = "nodejs";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   const supabase = createRouteSupabaseClient();
   const {
     data: { user }
