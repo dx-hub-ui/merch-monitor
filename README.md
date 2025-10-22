@@ -111,7 +111,7 @@ Every keyword exploration request (`POST /api/keywords/explore`) normalises inpu
 ## UI overview
 
 - **Auth**: Email/password sign in & sign up. (CI/E2E can set `E2E_BYPASS_AUTH=true` to inject an admin session.)
-- **Dashboard**: Search, sort, filter (including imagery-only and the new product-type selector), grid/table switcher, responsive layout, infinite scroll.
+- **Dashboard**: Search, sort, filter (including imagery-only, the product-type selector, and the BSR range slider with a quick reset), grid/table switcher, responsive layout, infinite scroll.
 - **Keywords**: `/keywords/explore` unifies live expansion, difficulty/opportunity chips, SERP previews, and private keyword lists with clipboard export and multi-list management; `/keywords/top` for sortable daily opportunity rankings; `/keywords/[term]` for 30-day difficulty/momentum sparklines, top-10 SERP cards, and cross-linked related queries.
 - **Dashboard modal**: Click any product row or card to open a quick-view modal with imagery, bullets, pricing, BSR (now backfilled from the latest trend metrics when snapshots are missing), reviews, outbound link helpers, and a selectable 30/60/90 day BSR history chart.
 - **Trends**: Momentum board with BSR/reviews deltas and semantic search panel.
