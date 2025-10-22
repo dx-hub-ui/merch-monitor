@@ -2,16 +2,19 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import useSWR from "swr";
 import useSWRInfinite from "swr/infinite";
 import type { Database } from "@/lib/supabase/types";
 import { clsx } from "clsx";
 import { PRODUCT_TYPES } from "@/lib/crawler-settings";
+import { ProductHistoryChart, type HistoryPoint } from "./product-history-chart";
 
 const PAGE_SIZE = 40;
 
 type ProductRow = Database["public"]["Tables"]["merch_products"]["Row"];
 
 type ApiResponse = ProductRow[];
+type ProductDetailResponse = { product: ProductRow; history: HistoryPoint[] };
 
 async function fetcher(url: string) {
   const res = await fetch(url, { cache: "no-store" });
@@ -23,6 +26,15 @@ async function fetcher(url: string) {
   const json = await res.json();
   if (!Array.isArray(json)) return [];
   return json as ApiResponse;
+}
+
+async function detailFetcher(url: string) {
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(error.error ?? "Failed to load product detail");
+  }
+  return (await res.json()) as ProductDetailResponse;
 }
 
 export function DashboardClient() {
@@ -404,6 +416,19 @@ function ProductModal({ product, onClose }: { product: ProductRow; onClose: () =
     };
   }, [onClose]);
 
+  const [range, setRange] = useState<30 | 60 | 90>(30);
+  const {
+    data: detail,
+    isLoading,
+    error
+  } = useSWR<ProductDetailResponse>(`/api/products/${product.asin}?days=${range}`, detailFetcher, {
+    keepPreviousData: true,
+    revalidateOnFocus: false
+  });
+
+  const detailProduct = detail?.product ?? product;
+  const history = detail?.history ?? [];
+
   if (typeof document === "undefined") {
     return null;
   }
@@ -412,7 +437,7 @@ function ProductModal({ product, onClose }: { product: ProductRow; onClose: () =
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`Details for ${product.title ?? product.asin}`}
+      aria-label={`Details for ${detailProduct.title ?? detailProduct.asin}`}
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 px-4 py-10"
       onClick={onClose}
     >
@@ -429,48 +454,81 @@ function ProductModal({ product, onClose }: { product: ProductRow; onClose: () =
           ✕
         </button>
         <div className="flex flex-col gap-5 sm:flex-row">
-          {product.image_url ? (
+          {detailProduct.image_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={product.image_url}
-              alt={product.title ?? product.asin}
+              src={detailProduct.image_url}
+              alt={detailProduct.title ?? detailProduct.asin}
               className="h-56 w-full rounded-2xl border border-slate-200 object-contain dark:border-slate-800 sm:w-56"
             />
           ) : null}
           <div className="flex flex-1 flex-col gap-3">
-            <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">{product.title ?? product.asin}</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Brand: {product.brand ?? "Unknown"}</p>
+            <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">{detailProduct.title ?? detailProduct.asin}</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Brand: {detailProduct.brand ?? "Unknown"}</p>
             <dl className="grid grid-cols-1 gap-2 text-sm text-slate-600 dark:text-slate-300 sm:grid-cols-2">
               <div>
                 <dt className="font-medium text-slate-500 dark:text-slate-400">Price</dt>
-                <dd>{formatPrice(product.price_cents)}</dd>
+                <dd>{formatPrice(detailProduct.price_cents)}</dd>
               </div>
               <div>
                 <dt className="font-medium text-slate-500 dark:text-slate-400">BSR</dt>
-                <dd>{product.bsr ?? "-"}</dd>
+                <dd>{detailProduct.bsr ?? "-"}</dd>
               </div>
               <div>
                 <dt className="font-medium text-slate-500 dark:text-slate-400">Reviews</dt>
-                <dd>{product.reviews_count ?? "-"}</dd>
+                <dd>{detailProduct.reviews_count ?? "-"}</dd>
               </div>
               <div>
                 <dt className="font-medium text-slate-500 dark:text-slate-400">Rating</dt>
-                <dd>{product.rating ?? "-"}</dd>
+                <dd>{detailProduct.rating ?? "-"}</dd>
               </div>
             </dl>
-            {product.bsr_category ? (
-              <p className="text-sm text-slate-500 dark:text-slate-400">Category: {product.bsr_category}</p>
+            {detailProduct.bsr_category ? (
+              <p className="text-sm text-slate-500 dark:text-slate-400">Category: {detailProduct.bsr_category}</p>
             ) : null}
           </div>
         </div>
         <div className="space-y-3 text-sm text-slate-600 dark:text-slate-300">
-          {product.bullet1 ? <p>{product.bullet1}</p> : null}
-          {product.bullet2 ? <p>{product.bullet2}</p> : null}
+          {detailProduct.bullet1 ? <p>{detailProduct.bullet1}</p> : null}
+          {detailProduct.bullet2 ? <p>{detailProduct.bullet2}</p> : null}
         </div>
+        <section className="space-y-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Best Sellers Rank history</h3>
+            <div className="flex gap-2">
+              {[30, 60, 90].map(window => (
+                <button
+                  key={window}
+                  type="button"
+                  onClick={() => setRange(window as 30 | 60 | 90)}
+                  className={clsx(
+                    "rounded-full border px-3 py-1 text-sm font-medium transition",
+                    range === window
+                      ? "border-brand bg-brand/10 text-brand"
+                      : "border-slate-300 bg-white text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                  )}
+                >
+                  Last {window} days
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/40">
+            {error ? (
+              <p className="text-sm text-red-600 dark:text-red-400">Failed to load history.</p>
+            ) : isLoading && !detail ? (
+              <div className="h-80 animate-pulse rounded-xl bg-slate-200/60 dark:bg-slate-800/40" aria-label="Loading history" />
+            ) : history.length ? (
+              <ProductHistoryChart history={history} />
+            ) : (
+              <p className="text-sm text-slate-500 dark:text-slate-400">No history available for this range.</p>
+            )}
+          </div>
+        </section>
         <div className="flex flex-col justify-between gap-3 border-t border-slate-200 pt-4 text-sm text-slate-500 dark:border-slate-800 dark:text-slate-400 sm:flex-row sm:items-center">
-          <time dateTime={product.last_seen}>Last seen {new Date(product.last_seen).toLocaleString()}</time>
+          <time dateTime={detailProduct.last_seen}>Last seen {new Date(detailProduct.last_seen).toLocaleString()}</time>
           <a
-            href={product.url ?? undefined}
+            href={detailProduct.url ?? undefined}
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center justify-center gap-2 rounded-full bg-brand px-4 py-2 font-medium text-white shadow transition hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/80"
