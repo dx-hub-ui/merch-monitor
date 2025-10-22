@@ -27,7 +27,7 @@ export async function middleware(request: NextRequest) {
 
   normalizeSupabaseCookies(request);
 
-  const response = NextResponse.next();
+  let response = NextResponse.next();
   const supabase = createMiddlewareClient<Database>({ req: request, res: response });
   const { error: sessionError } = await supabase.auth.getSession();
   if (sessionError && !(sessionError instanceof AuthSessionMissingError)) {
@@ -58,6 +58,32 @@ export async function middleware(request: NextRequest) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/";
     return NextResponse.redirect(redirectUrl);
+  }
+
+  const planTier = (user?.app_metadata as Record<string, unknown> | undefined)?.plan_tier;
+  const planStatus = (user?.app_metadata as Record<string, unknown> | undefined)?.plan_status;
+  const trialActive = (user?.app_metadata as Record<string, unknown> | undefined)?.trial_active;
+  const seats = (user?.app_metadata as Record<string, unknown> | undefined)?.seats;
+
+  if (user) {
+    const cookieSnapshot = response.cookies.getAll();
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set("x-plan-tier", planTier === "pro" ? "pro" : "basic");
+    requestHeaders.set("x-plan-status", typeof planStatus === "string" ? planStatus : "inactive");
+    requestHeaders.set("x-trial-active", trialActive ? "true" : "false");
+    requestHeaders.set("x-plan-seats", seats ? String(seats) : "1");
+
+    const enrichedResponse = NextResponse.next({
+      request: {
+        headers: requestHeaders
+      }
+    });
+
+    for (const cookie of cookieSnapshot) {
+      enrichedResponse.cookies.set(cookie);
+    }
+
+    response = enrichedResponse;
   }
 
   return response;

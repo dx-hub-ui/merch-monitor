@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { PRODUCT_TYPES } from "@/lib/crawler-settings";
 import { parseBsrFilters } from "@/lib/bsr";
+import { createRouteSupabaseClient } from "@/lib/supabase/route";
+import { extractEntitlements } from "@/lib/billing/claims";
+import type { Database } from "@/lib/supabase/types";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
@@ -17,14 +19,16 @@ export async function GET(req: NextRequest) {
   const normalisedType = typeFilter && PRODUCT_TYPES.includes(typeFilter as (typeof PRODUCT_TYPES)[number]) ? typeFilter : null;
   const { min: bsrMin, max: bsrMax } = parseBsrFilters(url.searchParams.get("bsrMin"), url.searchParams.get("bsrMax"));
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabase = createRouteSupabaseClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
 
-  if (!supabaseUrl || !supabaseKey) {
-    return NextResponse.json([], { status: 200 });
+  if (!user) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const supabase = createClient(supabaseUrl, supabaseKey, { global: { fetch } });
+  const entitlements = extractEntitlements(user);
   let query = supabase
     .from("merch_products")
     .select(
@@ -41,7 +45,15 @@ export async function GET(req: NextRequest) {
   }
 
   if (normalisedType) {
-    query = query.eq("product_type", normalisedType);
+    query = (query as unknown as {
+      eq: (
+        column: "product_type",
+        value: Database["public"]["Tables"]["merch_products"]["Row"]["product_type"]
+      ) => typeof query;
+    }).eq(
+      "product_type",
+      normalisedType as Database["public"]["Tables"]["merch_products"]["Row"]["product_type"]
+    );
   }
 
   if (bsrMin != null || bsrMax != null) {
@@ -69,7 +81,26 @@ export async function GET(req: NextRequest) {
     return res;
   }
 
-  const products = data ?? [];
+  type ProductRow = Pick<
+    Database["public"]["Tables"]["merch_products"]["Row"],
+    | "asin"
+    | "title"
+    | "brand"
+    | "image_url"
+    | "bullet1"
+    | "bullet2"
+    | "merch_flag_source"
+    | "product_type"
+    | "bsr"
+    | "bsr_category"
+    | "rating"
+    | "reviews_count"
+    | "price_cents"
+    | "url"
+    | "last_seen"
+  >;
+
+  const products = (data ?? []) as ProductRow[];
 
   const missingBsrAsins = products.filter(product => product.bsr == null).map(product => product.asin);
 
@@ -77,21 +108,29 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(products, { status: 200 });
   }
 
-  const { data: metrics } = await supabase
-    .from("merch_trend_metrics")
-    .select("asin,bsr_now")
+  const metricsQuery = supabase.from("merch_trend_metrics").select("asin,bsr_now");
+  const { data: metrics } = await (metricsQuery as unknown as {
+    in: (column: "asin", values: string[]) => typeof metricsQuery;
+  })
     .in("asin", missingBsrAsins);
+
+  const typedMetrics = (metrics ?? []) as Pick<
+    Database["public"]["Tables"]["merch_trend_metrics"]["Row"],
+    "asin" | "bsr_now"
+  >[];
 
   if (!metrics?.length) {
     return NextResponse.json(products, { status: 200 });
   }
 
-  const bsrByAsin = new Map(metrics.map(metric => [metric.asin, metric.bsr_now] as const));
+  const bsrByAsin = new Map(typedMetrics.map(metric => [metric.asin, metric.bsr_now] as const));
 
   const enriched = products.map(product => ({
     ...product,
     bsr: product.bsr ?? bsrByAsin.get(product.asin) ?? null
   }));
 
-  return NextResponse.json(enriched, { status: 200 });
+  const response = NextResponse.json(enriched, { status: 200 });
+  response.headers.set("x-plan-tier", entitlements.planTier);
+  return response;
 }
