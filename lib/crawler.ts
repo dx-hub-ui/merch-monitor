@@ -51,15 +51,62 @@ export function moneyToCents(txt?: string | null) {
 }
 
 export function parseBSR($: cheerio.CheerioAPI) {
-  const bodyText = $("body").text();
-  const match = bodyText.match(/Best Sellers Rank\s*#([\d,]+)\s*in\s*([^\n]+)/i);
-  if (!match) {
-    return { rank: null, cat: null };
+  const sources = [
+    "#productDetails_detailBullets_sections1",
+    "#detailBulletsWrapper_feature_div",
+    "#prodDetails",
+    "#detailBullets_feature_div",
+    "body"
+  ];
+
+  for (const selector of sources) {
+    const text = $(selector).text();
+    if (!text) continue;
+    const normalised = text.replace(/\s+/g, " ").trim();
+    const match = normalised.match(/Best Sellers Rank\s*(?::|#)?\s*#?([\d,]+)\s*in\s*([^#(]+)/i);
+    if (!match) continue;
+
+    const category = match[2]
+      .split("(")[0]
+      .split(" #")[0]
+      .replace(/\s+/g, " ")
+      .trim();
+
+    const rank = parseInt(match[1].replace(/,/g, ""), 10);
+    if (!Number.isFinite(rank)) continue;
+
+    return { rank, cat: category || null };
   }
-  return {
-    rank: parseInt(match[1].replace(/,/g, ""), 10),
-    cat: match[2].replace(/\s+/g, " ").trim()
-  };
+
+  return { rank: null, cat: null };
+}
+
+export function extractFeatureBullets($: cheerio.CheerioAPI): string[] {
+  const bullets: string[] = [];
+  const seen = new Set<string>();
+  const selectors = [
+    "#feature-bullets li span.a-list-item",
+    "#feature-bullets li"
+  ];
+
+  for (const selector of selectors) {
+    $(selector).each((_, el) => {
+      if ($(el).closest(".aok-hidden").length) return;
+      const text = $(el)
+        .text()
+        .replace(/\s+/g, " ")
+        .replace(/^[•\-–]\s*/, "")
+        .trim();
+      if (!text) return;
+      if (/^(about this item|from the brand)$/i.test(text)) return;
+      if (seen.has(text)) return;
+      seen.add(text);
+      bullets.push(text);
+    });
+    if (bullets.length) break;
+  }
+
+  return bullets;
 }
 
 export function extractAsin(input: string | null | undefined): string | null {
@@ -419,10 +466,7 @@ export async function parseProduct(url: string, browser?: Browser): Promise<Pars
     $('meta[property="og:image"]').attr("content") ||
     null;
 
-  const bullets = $("#feature-bullets li:not(.aok-hidden)")
-    .map((_, li) => $(li).text().replace(/\s+/g, " ").trim())
-    .get()
-    .filter(Boolean);
+  const bullets = extractFeatureBullets($);
   const bullet1 = bullets[0] ?? null;
   const bullet2 = bullets[1] ?? null;
 

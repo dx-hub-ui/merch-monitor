@@ -3,6 +3,7 @@ import * as cheerio from "cheerio";
 import {
   canonicalizeUrl,
   classifyProductType,
+  extractFeatureBullets,
   harvestVariantAsins,
   isMerch,
   merchSource,
@@ -44,6 +45,32 @@ const variantHtml = `
   </body>
 </html>`;
 
+const detailBulletsHtml = `
+<html>
+  <body>
+    <div id="detailBulletsWrapper_feature_div">
+      <ul>
+        <li><span>Best Sellers Rank: #2,345 in Clothing, Shoes &amp; Jewelry (See Top 100 in Clothing, Shoes &amp; Jewelry)</span></li>
+        <li><span>#32 in Men's Fashion Hoodies &amp; Sweatshirts</span></li>
+      </ul>
+    </div>
+  </body>
+</html>`;
+
+const bulletHtml = `
+<html>
+  <body>
+    <div id="feature-bullets">
+      <ul>
+        <li role="presentation"><span class="a-list-item">About this item</span></li>
+        <li class="aok-hidden"><span class="a-list-item">Hidden text</span></li>
+        <li><span class="a-list-item">Soft cotton fabric</span></li>
+        <li><span class="a-list-item">Printed in the USA</span></li>
+      </ul>
+    </div>
+  </body>
+</html>`;
+
 describe("crawler helpers", () => {
   it("converts money strings to cents", () => {
     expect(moneyToCents("$12.99")).toBe(1299);
@@ -54,6 +81,11 @@ describe("crawler helpers", () => {
   it("parses BSR rank and category", () => {
     const $ = cheerio.load(baseHtml);
     expect(parseBSR($)).toEqual({ rank: 1234, cat: "Clothing" });
+  });
+
+  it("parses BSR from detail bullets layout", () => {
+    const $ = cheerio.load(detailBulletsHtml);
+    expect(parseBSR($)).toEqual({ rank: 2345, cat: "Clothing, Shoes & Jewelry" });
   });
 
   it("normalises Amazon URLs", () => {
@@ -81,6 +113,11 @@ describe("crawler helpers", () => {
     const $ = cheerio.load(variantHtml);
     const variants = harvestVariantAsins($, "B000TEST01");
     expect(new Set(variants)).toEqual(new Set(["B000TEST02", "B000TEST03", "B000TEST04"]));
+  });
+
+  it("extracts feature bullets while skipping headings", () => {
+    const $ = cheerio.load(bulletHtml);
+    expect(extractFeatureBullets($)).toEqual(["Soft cotton fabric", "Printed in the USA"]);
   });
 
   it("classifies product types", () => {
