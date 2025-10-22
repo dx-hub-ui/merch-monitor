@@ -18,6 +18,15 @@ describe("decodeSupabaseCookieValue", () => {
     expect(decodeSupabaseCookieValue(encoded)).toBe(original);
   });
 
+  it("decodes values using base64url characters", () => {
+    const original = JSON.stringify({ token: "foo/bar+baz" });
+    const base64 = Buffer.from(original).toString("base64");
+    const base64url = base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    const encoded = `base64-${base64url}`;
+
+    expect(decodeSupabaseCookieValue(encoded)).toBe(original);
+  });
+
   it("falls back to the original value when decoding fails", () => {
     expect(decodeSupabaseCookieValue("base64-not-really")).toBe("base64-not-really");
   });
