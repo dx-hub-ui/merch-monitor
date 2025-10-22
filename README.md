@@ -102,11 +102,12 @@ Every keyword exploration request (`POST /api/keywords/explore`) normalises inpu
 - **Auth**: Email/password sign in & sign up. (CI/E2E can set `E2E_BYPASS_AUTH=true` to inject an admin session.)
 - **Dashboard**: Search, sort, filter (including imagery-only and the new product-type selector), grid/table switcher, responsive layout, infinite scroll.
 - **Keywords**: `/keywords/explore` for live expansion, difficulty/opportunity chips, and SERP previews; `/keywords/top` for sortable daily opportunity rankings; `/keywords/[term]` for 30-day difficulty/momentum sparklines, top-10 SERP cards, and cross-linked related queries.
-- **Dashboard modal**: Click any product row or card to open a quick-view modal with imagery, bullets, pricing, BSR, reviews, outbound link helpers, and a selectable 30/60/90 day BSR history chart.
+- **Dashboard modal**: Click any product row or card to open a quick-view modal with imagery, bullets, pricing, BSR (now backfilled from the latest trend metrics when snapshots are missing), reviews, outbound link helpers, and a selectable 30/60/90 day BSR history chart.
 - **Trends**: Momentum board with BSR/reviews deltas and semantic search panel.
 - **Product detail**: Product metadata, historical charts (BSR/reviews/price), similar items via pgvector.
 - **Admin / Crawler**: Admin-only control panel for discovery rules with environment override indicators and reset-to-defaults action.
 - **Account**: Change password and sign out.
+- **Header navigation**: Persistent links to Dashboard, Trends, and the Keywords intelligence suite (plus the admin Crawler when applicable) across desktop and mobile.
 
 All pages are responsive, accessible, and support dark mode via the header toggle. APIs respond from the Edge runtime and return arrays; on internal errors the response is an empty array with an `x-error` header.
 

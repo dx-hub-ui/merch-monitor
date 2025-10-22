@@ -6,35 +6,53 @@ const or = vi.fn();
 const not = vi.fn();
 const eq = vi.fn();
 const order = vi.fn();
+const inFilter = vi.fn();
 
 vi.mock("@supabase/supabase-js", () => ({
   createClient: () => ({
-    from: () => ({
-      select: () => ({
-        range: (...rangeArgs: unknown[]) => {
-          range(...rangeArgs);
-          const chain = {
-            or: (...orArgs: unknown[]) => {
-              or(...orArgs);
-              return chain;
-            },
-            not: (...notArgs: unknown[]) => {
-              not(...notArgs);
-              return chain;
-            },
-            eq: (...eqArgs: unknown[]) => {
-              eq(...eqArgs);
-              return chain;
-            },
-            order: (...orderArgs: unknown[]) => {
-              order(...orderArgs);
-              return Promise.resolve({ data: [{ asin: "TEST", product_type: "tshirt" }], error: null });
+    from: (table: string) => {
+      if (table === "merch_trend_metrics") {
+        return {
+          select: () => ({
+            in: (...inArgs: unknown[]) => {
+              inFilter(...inArgs);
+              return Promise.resolve({ data: [], error: null });
             }
-          };
-          return chain;
-        }
-      })
-    })
+          })
+        };
+      }
+
+      return {
+        select: () => ({
+          range: (...rangeArgs: unknown[]) => {
+            range(...rangeArgs);
+            const chain = {
+              or: (...orArgs: unknown[]) => {
+                or(...orArgs);
+                return chain;
+              },
+              not: (...notArgs: unknown[]) => {
+                not(...notArgs);
+                return chain;
+              },
+              in: (...inArgs: unknown[]) => {
+                inFilter(...inArgs);
+                return chain;
+              },
+              eq: (...eqArgs: unknown[]) => {
+                eq(...eqArgs);
+                return chain;
+              },
+              order: (...orderArgs: unknown[]) => {
+                order(...orderArgs);
+                return Promise.resolve({ data: [{ asin: "TEST", product_type: "tshirt" }], error: null });
+              }
+            };
+            return chain;
+          }
+        })
+      };
+    }
   })
 }));
 
@@ -45,6 +63,7 @@ describe("products api", () => {
     not.mockClear();
     order.mockClear();
     eq.mockClear();
+    inFilter.mockClear();
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon";
   });
@@ -59,6 +78,7 @@ describe("products api", () => {
     expect(range).toHaveBeenCalled();
     expect(order).toHaveBeenCalled();
     expect(eq).not.toHaveBeenCalled();
+    expect(inFilter).toHaveBeenCalledWith("asin", ["TEST"]);
   });
 
   it("applies product type filter", async () => {
