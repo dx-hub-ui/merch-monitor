@@ -2,14 +2,26 @@ import type { Session } from "@supabase/supabase-js";
 
 type Metadata = Record<string, unknown> | undefined | null;
 
+function normaliseRole(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const normalised = value.trim().toLowerCase();
+  return normalised.length > 0 ? normalised : null;
+}
+
 function extractRoles(meta: Metadata): string[] {
   if (!meta) return [];
   const roles = (meta as { roles?: unknown }).roles;
   if (Array.isArray(roles)) {
-    return roles.filter(role => typeof role === "string") as string[];
+    return roles
+      .filter((role): role is string => typeof role === "string")
+      .map(role => normaliseRole(role))
+      .filter((role): role is string => Boolean(role));
   }
   if (typeof roles === "string") {
-    return [roles];
+    return roles
+      .split(",")
+      .map(role => normaliseRole(role))
+      .filter((role): role is string => Boolean(role));
   }
   return [];
 }
@@ -17,14 +29,30 @@ function extractRoles(meta: Metadata): string[] {
 function extractRole(meta: Metadata): string | null {
   if (!meta) return null;
   const role = (meta as { role?: unknown }).role;
-  return typeof role === "string" ? role : null;
+  if (typeof role === "string") {
+    return normaliseRole(role);
+  }
+  return null;
+}
+
+function hasAdminFlag(meta: Metadata): boolean {
+  if (!meta) return false;
+  const flag = (meta as { is_admin?: unknown }).is_admin;
+  if (flag === true) {
+    return true;
+  }
+  if (typeof flag === "string") {
+    const normalised = flag.trim().toLowerCase();
+    return normalised === "true" || normalised === "1" || normalised === "yes";
+  }
+  return false;
 }
 
 export function isAdminSession(session: Session | null | undefined): boolean {
   if (!session) return false;
   const appMeta = session.user.app_metadata ?? {};
   const userMeta = session.user.user_metadata ?? {};
-  if (appMeta.is_admin === true || userMeta.is_admin === true) {
+  if (hasAdminFlag(appMeta) || hasAdminFlag(userMeta)) {
     return true;
   }
   const roles = [...extractRoles(appMeta), ...extractRoles(userMeta)];

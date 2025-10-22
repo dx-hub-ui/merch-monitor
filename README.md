@@ -106,9 +106,9 @@ Crawler settings live behind the `/admin/crawler` route. To grant access, mark t
 1. Open the Supabase project → **Authentication → Users**.
 2. Select the account and edit metadata.
 3. In **App metadata** or **User metadata**, set one of:
-   - `{"is_admin": true}`
-   - `{"roles": ["admin"]}`
-   - `{"role": "admin"}`
+   - `{"is_admin": true}` (strings such as `"true"`/`"1"` also work)
+   - `{"roles": ["admin"]}` (case-insensitive, e.g. `["Admin"]`)
+   - `{"role": "admin"}` (case-insensitive)
 4. Save the record and have the user sign out/in so their JWT refreshes.
 
 Alternatively, run a SQL update against `auth.users` (adjusting the email filter as needed):
