@@ -45,14 +45,14 @@ async function fetchStoredSettingsSupabase() {
 
   const canEdit = isAdminUser(user);
 
-  const { data, error: fetchError } = await supabase
+  const { data, error: settingsError } = await supabase
     .from("crawler_settings")
     .select(CRAWLER_SETTINGS_FIELDS.join(","))
     .limit(1)
     .maybeSingle();
 
-  if (fetchError && fetchError.code !== "PGRST116") {
-    throw fetchError;
+  if (settingsError && settingsError.code !== "PGRST116") {
+    throw settingsError;
   }
 
   const stored = normaliseCrawlerSettings(parseSettingsRecord(data));
