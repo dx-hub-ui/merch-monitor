@@ -1,0 +1,47 @@
+name: Run keyword maintenance scripts
+
+on:
+  workflow_dispatch:
+    inputs:
+      scripts:
+        description: 'JSON array of npm scripts to run (e.g. ["keywords:serp","metrics"] )'
+        required: false
+        default: '["keywords:serp"]'
+      node-version:
+        description: 'Node.js version to use'
+        required: false
+        default: '20'
+  schedule:
+    - cron: '0 6 * * *'
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        script: ${{ fromJSON(github.event_name == 'workflow_dispatch' && github.event.inputs.scripts || '["keywords:serp"]') }}
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.node-version || '20' }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        if: contains(matrix.script, 'serp')
+        run: npx playwright install --with-deps
+
+      - name: Run npm script
+        run: npm run ${{ matrix.script }}

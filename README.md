@@ -108,6 +108,23 @@ The crawler now combines admin-configured discovery rules, per-key environment o
 
 Every keyword exploration request (`POST /api/keywords/explore`) normalises input, merges autocomplete/semantic neighbours, classifies intent, enqueues SERP jobs for stale terms, and caches the response for ten minutes. Companion endpoints expose related terms, top opportunities, and SERP snapshots for dashboard pages.
 
+### Running keyword scripts in GitHub Actions
+
+The `Run keyword maintenance scripts` GitHub Actions workflow (`.github/workflows/run-keyword-scripts.yml`) makes it possible to execute `npm run keywords:serp` and the other maintenance scripts without shell access to the Supabase backend. Configure the following repository secrets so the workflow can authenticate:
+
+- `SUPABASE_DB_URL` – Postgres connection string with read/write access.
+- `NEXT_PUBLIC_SUPABASE_URL` – Supabase project URL used by service role clients.
+- `SUPABASE_SERVICE_ROLE_KEY` – Service role key for Supabase RPCs.
+- `OPENAI_API_KEY` – Required when running embedding scripts.
+
+Once the secrets are in place you can:
+
+1. Navigate to **Actions → Run keyword maintenance scripts** and trigger a manual run via **Run workflow**. Supply a JSON array of npm script names (for example `"[\"keywords:serp\",\"metrics\"]"`) to execute multiple scripts in sequence, or accept the default `keywords:serp` run.
+2. Allow the default cron schedule (`0 6 * * *`) to run nightly. Edit the `schedule` block in the workflow file if you need a different cadence or want to disable the timer.
+3. Override the Node.js version when dispatching manually by filling in the optional `node-version` field.
+
+The workflow installs dependencies with `npm ci`, provisions Playwright browsers automatically when a SERP crawl is requested, and exposes a dedicated job per script. Logs are streamed back to the Actions UI so you can audit crawler, metrics, or usage-reset output without logging in to the production servers.
+
 ## UI overview
 
 - **Auth**: Email/password sign in & sign up. (CI/E2E can set `E2E_BYPASS_AUTH=true` to inject an admin session.)
