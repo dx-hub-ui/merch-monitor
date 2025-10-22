@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 import { createServerSupabaseClient } from "../supabase/server";
 import type { Database, Json } from "../supabase/types";
 import {
@@ -279,7 +279,12 @@ export async function fetchKeywordLists(userId: string, options: ListsOptions = 
     .eq("user_id", userId)
     .order("created_at", { ascending: true });
 
-  if (error) throw error;
+  if (error) {
+    if ((error as PostgrestError | null)?.code === "PGRST205") {
+      return [];
+    }
+    throw error;
+  }
 
   const lists = (data ?? []).map((list: KeywordListRow & { keyword_list_items: KeywordListItemRow[] | null }) => ({
     id: list.id,

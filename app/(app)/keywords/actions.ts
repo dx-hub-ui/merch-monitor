@@ -6,6 +6,7 @@ import { DEFAULT_KEYWORD_ALIAS, normaliseKeywordTerm } from "@/lib/keywords";
 import { fetchKeywordLists } from "@/lib/keywords/server";
 import type { Database } from "@/lib/supabase/types";
 import { AuthSessionMissingError } from "@supabase/auth-js";
+import type { PostgrestError } from "@supabase/supabase-js";
 
 type ServerSupabaseClient = ReturnType<typeof createServerSupabaseClient>;
 
@@ -39,6 +40,23 @@ function triggerRevalidate() {
 type KeywordListInsert = Database["public"]["Tables"]["keyword_lists"]["Insert"];
 type KeywordListItemInsert = Database["public"]["Tables"]["keyword_list_items"]["Insert"];
 
+const KEYWORD_LISTS_DISABLED_MESSAGE =
+  "Keyword lists are not available in this workspace yet. Please contact support to enable the feature.";
+
+function isTableMissingError(error: unknown): error is PostgrestError {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+  return (error as PostgrestError).code === "PGRST205";
+}
+
+function handleKeywordListMutationError(error: PostgrestError) {
+  if (isTableMissingError(error)) {
+    throw new Error(KEYWORD_LISTS_DISABLED_MESSAGE);
+  }
+  throw error;
+}
+
 export async function createKeywordList(name: string) {
   const normalisedName = name?.trim();
   if (!normalisedName) {
@@ -53,7 +71,7 @@ export async function createKeywordList(name: string) {
 
     const { error } = await supabase.from("keyword_lists").insert(payload);
     if (error) {
-      throw error;
+      handleKeywordListMutationError(error);
     }
     triggerRevalidate();
     return fetchKeywordLists(userId, { supabase });
@@ -75,7 +93,7 @@ export async function renameKeywordList(listId: string, name: string) {
       .update({ name: normalisedName })
       .eq("id", listId);
     if (error) {
-      throw error;
+      handleKeywordListMutationError(error);
     }
     triggerRevalidate();
     return fetchKeywordLists(userId, { supabase });
@@ -90,7 +108,7 @@ export async function deleteKeywordList(listId: string) {
   return withAuth(async ({ supabase, userId }) => {
     const { error } = await supabase.from("keyword_lists").delete().eq("id", listId);
     if (error) {
-      throw error;
+      handleKeywordListMutationError(error);
     }
     triggerRevalidate();
     return fetchKeywordLists(userId, { supabase });
@@ -128,7 +146,7 @@ export async function addKeywordsToList(listId: string, keywords: string[], alia
     });
 
     if (error) {
-      throw error;
+      handleKeywordListMutationError(error);
     }
 
     triggerRevalidate();
@@ -144,7 +162,7 @@ export async function removeKeywordFromList(itemId: number) {
   return withAuth(async ({ supabase, userId }) => {
     const { error } = await supabase.from("keyword_list_items").delete().eq("id", itemId);
     if (error) {
-      throw error;
+      handleKeywordListMutationError(error);
     }
     triggerRevalidate();
     return fetchKeywordLists(userId, { supabase });

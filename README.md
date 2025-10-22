@@ -104,7 +104,7 @@ The crawler now combines admin-configured discovery rules, per-key environment o
 - `scripts/serp.ts` ingests queued keyword jobs, crawls 2–5 SERP pages via Playwright (respecting ≥300 ms throttles plus jitter), verifies strict Merch-on-Demand signals on detail pages, and stores full snapshots in `keyword_serp_snapshot`.
 - `scripts/metrics.ts` also aggregates the most recent snapshots into `keyword_metrics_daily`, applying competition/difficulty/opportunity scoring, entropy-based diversity, price IQR, and 7d/30d momentum deltas.
 - `scripts/embed_keywords.ts` back-fills and refreshes OpenAI embeddings for keyword+alias strings so semantic expansion stays in sync with the autocomplete corpus.
-- Keyword list management persists to `keyword_lists` and `keyword_list_items`, enabling private campaign sets, launch cohorts, and research groups per user.
+- Keyword list management persists to `keyword_lists` and `keyword_list_items`, enabling private campaign sets, launch cohorts, and research groups per user. When those tables are missing (for example before running the `0004_keyword_lists` migration) the application now falls back to a read-only mode that surfaces a friendly message instead of surfacing Supabase `PGRST205` errors.
 
 Every keyword exploration request (`POST /api/keywords/explore`) normalises input, merges autocomplete/semantic neighbours, classifies intent, enqueues SERP jobs for stale terms, and caches the response for ten minutes. Companion endpoints expose related terms, top opportunities, and SERP snapshots for dashboard pages.
 
