@@ -1,6 +1,6 @@
 "use client";
 
-import type { FormEvent } from "react";
+import type { FocusEventHandler, FormEvent } from "react";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -910,12 +910,12 @@ function EditableListTitle({ name, onRename }: EditableListTitleProps) {
     setValue(trimmed);
   };
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     commitRename();
   };
 
-  const handleBlur = () => {
+  const handleBlur: FocusEventHandler<HTMLInputElement> = () => {
     commitRename();
   };
 

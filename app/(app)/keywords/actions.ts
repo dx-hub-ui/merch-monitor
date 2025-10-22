@@ -2,16 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { DEFAULT_KEYWORD_ALIAS, normaliseKeywordTerm } from "@/lib/keywords";
 import { fetchKeywordLists } from "@/lib/keywords/server";
 import type { Database } from "@/lib/supabase/types";
 
-type ServerSupabaseClient = SupabaseClient<Database, "public">;
+type ServerSupabaseClient = ReturnType<typeof createServerSupabaseClient>;
 
 async function withAuth<T>(handler: (context: { supabase: ServerSupabaseClient; userId: string }) => Promise<T>): Promise<T> {
   const supabase = createServerSupabaseClient();
-  const typedSupabase = supabase as unknown as ServerSupabaseClient;
   const {
     data: { user },
     error
@@ -25,7 +23,7 @@ async function withAuth<T>(handler: (context: { supabase: ServerSupabaseClient; 
     throw new Error("AUTH_REQUIRED");
   }
 
-  return handler({ supabase: typedSupabase, userId: user.id });
+  return handler({ supabase, userId: user.id });
 }
 
 function normaliseAlias(alias?: string) {

@@ -34,7 +34,7 @@ function createSupabaseClient(options?: { supabase?: Supabase }): Supabase {
     return options.supabase;
   }
 
-  return createServerSupabaseClient() as unknown as Supabase;
+  return createServerSupabaseClient();
 }
 
 function dedupeKeywords(keywords: string[]): string[] {
@@ -178,7 +178,7 @@ function buildSummary(points: KeywordMetricPoint[]): KeywordSummary | null {
   };
 }
 
-function parseSuggestionRows(rows: Array<Pick<KeywordSuggestionRow, "term">>): string[] {
+function parseSuggestionRows<T extends Pick<KeywordSuggestionRow, "term">>(rows: T[]): string[] {
   return dedupeKeywords(rows.map(row => row.term));
 }
 

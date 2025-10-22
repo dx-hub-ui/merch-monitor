@@ -4,8 +4,8 @@ import { upsertProduct, saveParsedProduct } from "@/crawler/storage";
 import type { Product } from "@/lib/crawler";
 
 describe("crawler storage", () => {
-  const query = vi.fn<Parameters<Client["query"]>, ReturnType<Client["query"]>>();
-  const pg = { query } as unknown as Client;
+  const query = vi.fn();
+  const pg = { query: query as unknown as Client["query"] } as unknown as Client;
 
   const product: Product = {
     asin: "B000TEST00",
