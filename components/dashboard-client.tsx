@@ -30,6 +30,8 @@ export function DashboardClient() {
   const [direction, setDirection] = useState<"asc" | "desc">("asc");
   const [withImages, setWithImages] = useState(false);
   const [productType, setProductType] = useState<string>("all");
+  const [bsrMin, setBsrMin] = useState("");
+  const [bsrMax, setBsrMax] = useState("");
   const [viewMode, setViewMode] = useState<"table" | "grid">(() => {
     if (typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches) {
       return "grid";
@@ -50,6 +52,12 @@ export function DashboardClient() {
     if (productType !== "all") {
       params.set("type", productType);
     }
+    if (bsrMin.trim()) {
+      params.set("bsrMin", bsrMin.trim());
+    }
+    if (bsrMax.trim()) {
+      params.set("bsrMax", bsrMax.trim());
+    }
     return `/api/products?${params.toString()}`;
   };
 
@@ -60,7 +68,7 @@ export function DashboardClient() {
   useEffect(() => {
     setSize(1);
     mutate();
-  }, [search, sort, direction, withImages, productType, setSize, mutate]);
+  }, [search, sort, direction, withImages, productType, bsrMin, bsrMax, setSize, mutate]);
 
   const rows = useMemo(() => (data ? data.flat() : []), [data]);
   const hasMore = data ? data[data.length - 1]?.length === PAGE_SIZE : true;
@@ -68,8 +76,8 @@ export function DashboardClient() {
   return (
     <div className="flex flex-1 flex-col gap-4">
       <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/60">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <label className="flex flex-col gap-1 text-sm font-medium text-slate-700 dark:text-slate-200 sm:col-span-2 xl:col-span-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
+          <label className="flex flex-col gap-1 text-sm font-medium text-slate-700 dark:text-slate-200 sm:col-span-2 xl:col-span-3">
             Filter
             <input
               value={search}
@@ -117,6 +125,32 @@ export function DashboardClient() {
                 </option>
               ))}
             </select>
+          </label>
+          <label className="flex flex-col gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
+            Min BSR
+            <input
+              type="number"
+              min={1}
+              step={1}
+              inputMode="numeric"
+              value={bsrMin}
+              onChange={event => setBsrMin(event.target.value)}
+              placeholder="e.g. 1"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-base text-slate-900 shadow-sm focus:border-brand focus:ring-2 focus:ring-brand/60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
+            Max BSR
+            <input
+              type="number"
+              min={1}
+              step={1}
+              inputMode="numeric"
+              value={bsrMax}
+              onChange={event => setBsrMax(event.target.value)}
+              placeholder="e.g. 100000"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-base text-slate-900 shadow-sm focus:border-brand focus:ring-2 focus:ring-brand/60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            />
           </label>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

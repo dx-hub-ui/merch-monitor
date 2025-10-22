@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
   const withImages = (url.searchParams.get("withImages") || "false").toLowerCase() === "true";
   const typeFilter = url.searchParams.get("type");
   const normalisedType = typeFilter && PRODUCT_TYPES.includes(typeFilter as (typeof PRODUCT_TYPES)[number]) ? typeFilter : null;
+  const { min: bsrMin, max: bsrMax } = parseBsrFilters(url.searchParams.get("bsrMin"), url.searchParams.get("bsrMax"));
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -42,6 +43,18 @@ export async function GET(req: NextRequest) {
     query = query.eq("product_type", normalisedType);
   }
 
+  if (bsrMin != null || bsrMax != null) {
+    query = query.not("bsr", "is", null);
+  }
+
+  if (bsrMin != null) {
+    query = query.gte("bsr", bsrMin);
+  }
+
+  if (bsrMax != null) {
+    query = query.lte("bsr", bsrMax);
+  }
+
   if (sort === "reviews") query = query.order("reviews_count", { ascending: direction });
   else if (sort === "rating") query = query.order("rating", { ascending: direction });
   else if (sort === "last_seen") query = query.order("last_seen", { ascending: direction });
@@ -56,4 +69,22 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json(data ?? [], { status: 200 });
+}
+
+export function parseBsrFilters(minValue: string | null, maxValue: string | null) {
+  const parse = (value: string | null) => {
+    if (!value) return null;
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isNaN(parsed) || parsed < 1) return null;
+    return parsed;
+  };
+
+  let min = parse(minValue);
+  let max = parse(maxValue);
+
+  if (min != null && max != null && min > max) {
+    [min, max] = [max, min];
+  }
+
+  return { min, max } as const;
 }
