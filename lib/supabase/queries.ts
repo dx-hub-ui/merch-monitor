@@ -1,3 +1,4 @@
+import { AuthSessionMissingError } from "@supabase/auth-js";
 import { createServerSupabaseClient } from "./server";
 import type { Database } from "./types";
 import type { Session } from "@supabase/supabase-js";
@@ -43,6 +44,9 @@ export async function getSession() {
     error: userError
   } = await supabase.auth.getUser();
   if (userError) {
+    if (userError instanceof AuthSessionMissingError) {
+      return null;
+    }
     throw userError;
   }
   if (!user) {
@@ -53,6 +57,9 @@ export async function getSession() {
     error: sessionError
   } = await supabase.auth.getSession();
   if (sessionError) {
+    if (sessionError instanceof AuthSessionMissingError) {
+      return null;
+    }
     throw sessionError;
   }
   if (!session) {
