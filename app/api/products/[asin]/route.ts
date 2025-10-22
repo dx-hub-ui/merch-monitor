@@ -47,5 +47,19 @@ export async function GET(req: NextRequest, { params }: { params: { asin: string
     return NextResponse.json({ error: historyError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ product, history: history ?? [] }, { status: 200 });
+  let enrichedProduct = product;
+
+  if (enrichedProduct.bsr == null) {
+    const { data: metric } = await supabase
+      .from("merch_trend_metrics")
+      .select("asin,bsr_now")
+      .eq("asin", asin)
+      .maybeSingle();
+
+    if (metric?.bsr_now != null) {
+      enrichedProduct = { ...enrichedProduct, bsr: metric.bsr_now };
+    }
+  }
+
+  return NextResponse.json({ product: enrichedProduct, history: history ?? [] }, { status: 200 });
 }

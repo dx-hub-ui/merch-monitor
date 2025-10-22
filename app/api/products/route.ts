@@ -69,5 +69,29 @@ export async function GET(req: NextRequest) {
     return res;
   }
 
-  return NextResponse.json(data ?? [], { status: 200 });
+  const products = data ?? [];
+
+  const missingBsrAsins = products.filter(product => product.bsr == null).map(product => product.asin);
+
+  if (!missingBsrAsins.length) {
+    return NextResponse.json(products, { status: 200 });
+  }
+
+  const { data: metrics } = await supabase
+    .from("merch_trend_metrics")
+    .select("asin,bsr_now")
+    .in("asin", missingBsrAsins);
+
+  if (!metrics?.length) {
+    return NextResponse.json(products, { status: 200 });
+  }
+
+  const bsrByAsin = new Map(metrics.map(metric => [metric.asin, metric.bsr_now] as const));
+
+  const enriched = products.map(product => ({
+    ...product,
+    bsr: product.bsr ?? bsrByAsin.get(product.asin) ?? null
+  }));
+
+  return NextResponse.json(enriched, { status: 200 });
 }

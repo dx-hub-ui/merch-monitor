@@ -69,6 +69,9 @@ export function AppHeader({ email, isAdmin = false }: Props) {
             <Link className="transition-colors hover:text-white" href="/trends">
               Trends
             </Link>
+            <Link className="transition-colors hover:text-white" href="/keywords/explore">
+              Keywords
+            </Link>
             {isAdmin ? (
               <Link className="transition-colors hover:text-white" href="/admin/crawler">
                 Crawler
@@ -92,6 +95,9 @@ export function AppHeader({ email, isAdmin = false }: Props) {
               </Link>
               <Link className="rounded-lg px-3 py-2 transition hover:bg-white/10" href="/trends">
                 Trends
+              </Link>
+              <Link className="rounded-lg px-3 py-2 transition hover:bg-white/10" href="/keywords/explore">
+                Keywords
               </Link>
               {isAdmin ? (
                 <Link className="rounded-lg px-3 py-2 transition hover:bg-white/10" href="/admin/crawler">
