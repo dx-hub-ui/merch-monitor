@@ -28,6 +28,29 @@ describe("crawler settings", () => {
     expect(normalised.zgbs_pages).toBe(3);
   });
 
+  it("allows admins to bypass crawler limits", () => {
+    const adminNormalised = normaliseCrawlerSettings({ max_items_per_run: 20_000 }, { bypassLimits: true });
+    expect(adminNormalised.max_items_per_run).toBe(20_000);
+
+    const regularNormalised = normaliseCrawlerSettings({ max_items_per_run: 20_000 });
+    expect(regularNormalised.max_items_per_run).toBe(5000);
+  });
+
+  it("returns unlimited effective settings when bypassing limits", () => {
+    const { settings: adminSettings } = buildEffectiveSettings(
+      { max_items_per_run: 15_000 },
+      {} as NodeJS.ProcessEnv,
+      { bypassLimits: true }
+    );
+    expect(adminSettings.max_items_per_run).toBe(15_000);
+
+    const { settings: regularSettings } = buildEffectiveSettings(
+      { max_items_per_run: 15_000 },
+      {} as NodeJS.ProcessEnv
+    );
+    expect(regularSettings.max_items_per_run).toBe(5000);
+  });
+
   it("provides canonical merch discovery paths", () => {
     expect(DEFAULT_ZGBS_PATHS.every(path => path.startsWith("/Best-Sellers"))).toBe(true);
     expect(DEFAULT_NEW_RELEASE_PATHS.every(path => path.startsWith("/gp/new-releases"))).toBe(true);

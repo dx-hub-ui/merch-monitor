@@ -55,6 +55,10 @@ export function CrawlerSettingsForm({ stored, effective, overrides, canEdit, ini
   }, [overrideState]);
 
   const disabled = !canEdit || submitting;
+  const allowUnbounded = canEdit;
+
+  const applyBounds = (value: number, range: { min: number; max: number }) =>
+    allowUnbounded ? Math.max(range.min, value) : clamp(value, range.min, range.max);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -110,12 +114,12 @@ export function CrawlerSettingsForm({ stored, effective, overrides, canEdit, ini
               id="max-items"
               type="number"
               min={MAX_ITEMS_RANGE.min}
-              max={MAX_ITEMS_RANGE.max}
+              max={allowUnbounded ? undefined : MAX_ITEMS_RANGE.max}
               value={form.max_items_per_run}
               onChange={event =>
                 updateField(
                   "max_items_per_run",
-                  clamp(toInt(event.target.value, form.max_items_per_run), MAX_ITEMS_RANGE.min, MAX_ITEMS_RANGE.max)
+                  applyBounds(toInt(event.target.value, form.max_items_per_run), MAX_ITEMS_RANGE)
                 )
               }
               className="w-32 rounded-lg border border-slate-300 px-3 py-2 text-slate-900 shadow-sm focus:border-brand focus:ring-2 focus:ring-brand/60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
@@ -148,12 +152,12 @@ export function CrawlerSettingsForm({ stored, effective, overrides, canEdit, ini
               id="zgbs-pages"
               type="number"
               min={ZGBS_PAGE_RANGE.min}
-              max={ZGBS_PAGE_RANGE.max}
+              max={allowUnbounded ? undefined : ZGBS_PAGE_RANGE.max}
               value={form.zgbs_pages}
               onChange={event =>
                 updateField(
                   "zgbs_pages",
-                  clamp(toInt(event.target.value, form.zgbs_pages), ZGBS_PAGE_RANGE.min, ZGBS_PAGE_RANGE.max)
+                  applyBounds(toInt(event.target.value, form.zgbs_pages), ZGBS_PAGE_RANGE)
                 )
               }
               className="w-24 rounded-lg border border-slate-300 px-3 py-2 text-slate-900 shadow-sm focus:border-brand focus:ring-2 focus:ring-brand/60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
@@ -205,12 +209,12 @@ export function CrawlerSettingsForm({ stored, effective, overrides, canEdit, ini
               id="new-pages"
               type="number"
               min={NEW_PAGE_RANGE.min}
-              max={NEW_PAGE_RANGE.max}
+              max={allowUnbounded ? undefined : NEW_PAGE_RANGE.max}
               value={form.new_pages}
               onChange={event =>
                 updateField(
                   "new_pages",
-                  clamp(toInt(event.target.value, form.new_pages), NEW_PAGE_RANGE.min, NEW_PAGE_RANGE.max)
+                  applyBounds(toInt(event.target.value, form.new_pages), NEW_PAGE_RANGE)
                 )
               }
               className="w-24 rounded-lg border border-slate-300 px-3 py-2 text-slate-900 shadow-sm focus:border-brand focus:ring-2 focus:ring-brand/60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
@@ -260,12 +264,12 @@ export function CrawlerSettingsForm({ stored, effective, overrides, canEdit, ini
               id="movers-pages"
               type="number"
               min={MOVERS_PAGE_RANGE.min}
-              max={MOVERS_PAGE_RANGE.max}
+              max={allowUnbounded ? undefined : MOVERS_PAGE_RANGE.max}
               value={form.movers_pages}
               onChange={event =>
                 updateField(
                   "movers_pages",
-                  clamp(toInt(event.target.value, form.movers_pages), MOVERS_PAGE_RANGE.min, MOVERS_PAGE_RANGE.max)
+                  applyBounds(toInt(event.target.value, form.movers_pages), MOVERS_PAGE_RANGE)
                 )
               }
               className="w-24 rounded-lg border border-slate-300 px-3 py-2 text-slate-900 shadow-sm focus:border-brand focus:ring-2 focus:ring-brand/60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
@@ -315,12 +319,12 @@ export function CrawlerSettingsForm({ stored, effective, overrides, canEdit, ini
               id="search-pages"
               type="number"
               min={SEARCH_PAGE_RANGE.min}
-              max={SEARCH_PAGE_RANGE.max}
+              max={allowUnbounded ? undefined : SEARCH_PAGE_RANGE.max}
               value={form.search_pages}
               onChange={event =>
                 updateField(
                   "search_pages",
-                  clamp(toInt(event.target.value, form.search_pages), SEARCH_PAGE_RANGE.min, SEARCH_PAGE_RANGE.max)
+                  applyBounds(toInt(event.target.value, form.search_pages), SEARCH_PAGE_RANGE)
                 )
               }
               className="w-24 rounded-lg border border-slate-300 px-3 py-2 text-slate-900 shadow-sm focus:border-brand focus:ring-2 focus:ring-brand/60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
@@ -413,6 +417,7 @@ export function CrawlerSettingsForm({ stored, effective, overrides, canEdit, ini
               max={RECRAWL_RANGE.P0.max}
               overridden={overriddenKeys.has("recrawl_hours_p0")}
               onChange={value => updateField("recrawl_hours_p0", value)}
+              allowUnbounded={allowUnbounded}
             />
             <NumberField
               id="recrawl-p1"
@@ -422,6 +427,7 @@ export function CrawlerSettingsForm({ stored, effective, overrides, canEdit, ini
               max={RECRAWL_RANGE.P1.max}
               overridden={overriddenKeys.has("recrawl_hours_p1")}
               onChange={value => updateField("recrawl_hours_p1", value)}
+              allowUnbounded={allowUnbounded}
             />
             <NumberField
               id="recrawl-p2"
@@ -431,6 +437,7 @@ export function CrawlerSettingsForm({ stored, effective, overrides, canEdit, ini
               max={RECRAWL_RANGE.P2.max}
               overridden={overriddenKeys.has("recrawl_hours_p2")}
               onChange={value => updateField("recrawl_hours_p2", value)}
+              allowUnbounded={allowUnbounded}
             />
             <NumberField
               id="recrawl-p3"
@@ -440,6 +447,7 @@ export function CrawlerSettingsForm({ stored, effective, overrides, canEdit, ini
               max={RECRAWL_RANGE.P3.max}
               overridden={overriddenKeys.has("recrawl_hours_p3")}
               onChange={value => updateField("recrawl_hours_p3", value)}
+              allowUnbounded={allowUnbounded}
             />
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -454,6 +462,7 @@ export function CrawlerSettingsForm({ stored, effective, overrides, canEdit, ini
                   max={DELAY_PAGE_RANGE.max}
                   overridden={overriddenKeys.has("per_page_delay_ms_min")}
                   onChange={value => updateField("per_page_delay_ms_min", value)}
+                  allowUnbounded={allowUnbounded}
                 />
                 <NumberField
                   id="per-page-delay-max"
@@ -463,6 +472,7 @@ export function CrawlerSettingsForm({ stored, effective, overrides, canEdit, ini
                   max={DELAY_PAGE_RANGE.max}
                   overridden={overriddenKeys.has("per_page_delay_ms_max")}
                   onChange={value => updateField("per_page_delay_ms_max", value)}
+                  allowUnbounded={allowUnbounded}
                 />
               </div>
             </div>
@@ -477,6 +487,7 @@ export function CrawlerSettingsForm({ stored, effective, overrides, canEdit, ini
                   max={DELAY_PRODUCT_RANGE.max}
                   overridden={overriddenKeys.has("per_product_delay_ms_min")}
                   onChange={value => updateField("per_product_delay_ms_min", value)}
+                  allowUnbounded={allowUnbounded}
                 />
                 <NumberField
                   id="per-product-delay-max"
@@ -486,6 +497,7 @@ export function CrawlerSettingsForm({ stored, effective, overrides, canEdit, ini
                   max={DELAY_PRODUCT_RANGE.max}
                   overridden={overriddenKeys.has("per_product_delay_ms_max")}
                   onChange={value => updateField("per_product_delay_ms_max", value)}
+                  allowUnbounded={allowUnbounded}
                 />
               </div>
             </div>
@@ -555,9 +567,10 @@ type NumberFieldProps = {
   max: number;
   overridden?: boolean;
   onChange: (value: number) => void;
+  allowUnbounded?: boolean;
 };
 
-function NumberField({ id, label, value, min, max, overridden, onChange }: NumberFieldProps) {
+function NumberField({ id, label, value, min, max, overridden, onChange, allowUnbounded = false }: NumberFieldProps) {
   return (
     <div className="flex flex-col gap-2">
       <label className="text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor={id}>
@@ -567,9 +580,11 @@ function NumberField({ id, label, value, min, max, overridden, onChange }: Numbe
         id={id}
         type="number"
         min={min}
-        max={max}
+        max={allowUnbounded ? undefined : max}
         value={value}
-        onChange={event => onChange(clamp(toInt(event.target.value, value), min, max))}
+        onChange={event =>
+          onChange(allowUnbounded ? Math.max(min, toInt(event.target.value, value)) : clamp(toInt(event.target.value, value), min, max))
+        }
         className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-brand focus:ring-2 focus:ring-brand/60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
       />
       {overridden ? <p className="text-xs font-medium text-amber-600">Overridden by environment</p> : null}

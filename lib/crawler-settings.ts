@@ -14,31 +14,31 @@ export type ProductType = (typeof PRODUCT_TYPES)[number];
 
 export const crawlerSettingsSchema = z.object({
   use_best_sellers: z.boolean().default(true),
-  zgbs_pages: z.number().int().min(3).max(10).default(5),
+  zgbs_pages: z.number().int().min(3).default(5),
   zgbs_paths: z.array(z.string()).default([]),
   use_new_releases: z.boolean().default(true),
-  new_pages: z.number().int().min(1).max(5).default(2),
+  new_pages: z.number().int().min(1).default(2),
   new_paths: z.array(z.string()).default([]),
   use_movers: z.boolean().default(true),
-  movers_pages: z.number().int().min(1).max(3).default(2),
+  movers_pages: z.number().int().min(1).default(2),
   movers_paths: z.array(z.string()).default([]),
   use_search: z.boolean().default(true),
-  search_pages: z.number().int().min(1).max(5).default(2),
+  search_pages: z.number().int().min(1).default(2),
   search_category: z.string().nullable().default("fashion-novelty"),
   search_sort: z.string().nullable().default("featured"),
   search_rh: z.string().nullable().default("p_6:ATVPDKIKX0DER"),
   search_keywords: z.array(z.string()).default([]),
   hidden_include: z.array(z.string()).default([]),
   hidden_exclude: z.array(z.string()).default([]),
-  max_items_per_run: z.number().int().min(100).max(5000).default(600),
-  recrawl_hours_p0: z.number().int().min(4).max(24).default(8),
-  recrawl_hours_p1: z.number().int().min(8).max(48).default(18),
-  recrawl_hours_p2: z.number().int().min(12).max(72).default(36),
-  recrawl_hours_p3: z.number().int().min(24).max(168).default(96),
-  per_page_delay_ms_min: z.number().int().min(1000).max(5000).default(1500),
-  per_page_delay_ms_max: z.number().int().min(1500).max(7000).default(3000),
-  per_product_delay_ms_min: z.number().int().min(3000).max(8000).default(4000),
-  per_product_delay_ms_max: z.number().int().min(4000).max(12000).default(6000),
+  max_items_per_run: z.number().int().min(100).default(600),
+  recrawl_hours_p0: z.number().int().min(4).default(8),
+  recrawl_hours_p1: z.number().int().min(8).default(18),
+  recrawl_hours_p2: z.number().int().min(12).default(36),
+  recrawl_hours_p3: z.number().int().min(24).default(96),
+  per_page_delay_ms_min: z.number().int().min(1000).default(1500),
+  per_page_delay_ms_max: z.number().int().min(1500).default(3000),
+  per_product_delay_ms_min: z.number().int().min(3000).default(4000),
+  per_product_delay_ms_max: z.number().int().min(4000).default(6000),
   marketplace_id: z.string().min(1).max(32).default("ATVPDKIKX0DER")
 });
 
@@ -159,13 +159,26 @@ export function sanitizeStringArray(values: string[] | null | undefined): string
     .slice(0, 200);
 }
 
-export function normaliseCrawlerSettings(partial: Partial<CrawlerSettings>): CrawlerSettings {
+export function normaliseCrawlerSettings(
+  partial: Partial<CrawlerSettings>,
+  options?: NormaliseOptions
+): CrawlerSettings {
   const merged = { ...DEFAULT_CRAWLER_SETTINGS, ...partial } satisfies CrawlerSettings;
-  const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+  const clamp = (value: number, min: number, max: number) => {
+    const numeric = Number.isFinite(value) ? value : min;
+    if (options?.bypassLimits) {
+      return Math.max(min, numeric);
+    }
+    return Math.min(max, Math.max(min, numeric));
+  };
   const perPageMin = clamp(merged.per_page_delay_ms_min, 1000, 5000);
   const perPageMax = clamp(merged.per_page_delay_ms_max, 1500, 7000);
   const perProductMin = clamp(merged.per_product_delay_ms_min, 3000, 8000);
   const perProductMax = clamp(merged.per_product_delay_ms_max, 4000, 12000);
+  const orderedPerPageMin = Math.min(perPageMin, perPageMax);
+  const orderedPerPageMax = Math.max(perPageMin, perPageMax);
+  const orderedPerProductMin = Math.min(perProductMin, perProductMax);
+  const orderedPerProductMax = Math.max(perProductMin, perProductMax);
   return {
     ...merged,
     zgbs_paths: sanitizeStringArray(merged.zgbs_paths),
@@ -183,10 +196,10 @@ export function normaliseCrawlerSettings(partial: Partial<CrawlerSettings>): Cra
     recrawl_hours_p1: clamp(merged.recrawl_hours_p1, 8, 48),
     recrawl_hours_p2: clamp(merged.recrawl_hours_p2, 12, 72),
     recrawl_hours_p3: clamp(merged.recrawl_hours_p3, 24, 168),
-    per_page_delay_ms_min: Math.min(perPageMin, perPageMax),
-    per_page_delay_ms_max: Math.max(perPageMin, perPageMax),
-    per_product_delay_ms_min: Math.min(perProductMin, perProductMax),
-    per_product_delay_ms_max: Math.max(perProductMin, perProductMax),
+    per_page_delay_ms_min: orderedPerPageMin,
+    per_page_delay_ms_max: orderedPerPageMax,
+    per_product_delay_ms_min: orderedPerProductMin,
+    per_product_delay_ms_max: orderedPerProductMax,
     marketplace_id: (merged.marketplace_id || "ATVPDKIKX0DER").trim() || "ATVPDKIKX0DER"
   };
 }
@@ -223,6 +236,10 @@ const STRICT_STRING_ENV_KEYS = ["marketplace_id"] as const;
 
 export type OverrideMap = Partial<Record<keyof CrawlerSettings, true>>;
 
+type NormaliseOptions = {
+  bypassLimits?: boolean;
+};
+
 function isKeyFromList<T extends readonly (keyof CrawlerSettings)[]>(
   key: keyof CrawlerSettings,
   list: T
@@ -254,10 +271,18 @@ function isStrictStringSettingKey(key: keyof CrawlerSettings): key is (typeof ST
 
 export function applyEnvOverrides(
   settings: CrawlerSettings,
-  env: NodeJS.ProcessEnv
+  env: NodeJS.ProcessEnv,
+  options?: NormaliseOptions
 ): { settings: CrawlerSettings; overrides: OverrideMap } {
   const updated: CrawlerSettings = { ...settings };
   const overrides: OverrideMap = {};
+  const constrain = (value: number, min: number, max: number) => {
+    const numeric = Number.isFinite(value) ? value : min;
+    if (options?.bypassLimits) {
+      return Math.max(min, numeric);
+    }
+    return Math.min(max, Math.max(min, numeric));
+  };
 
   for (const key of BOOL_ENV_KEYS) {
     const envKey = key.toUpperCase();
@@ -274,7 +299,7 @@ export function applyEnvOverrides(
       if (Number.isFinite(value)) {
         const bounds = INT_ENV_BOUNDS[key];
         if (bounds) {
-          const constrained = Math.min(bounds.max, Math.max(bounds.min, value));
+          const constrained = constrain(value, bounds.min, bounds.max);
           const typedKey = key as keyof CrawlerSettings;
           (updated as Record<keyof CrawlerSettings, unknown>)[typedKey] = constrained;
           overrides[typedKey] = true;
@@ -314,10 +339,12 @@ export function applyEnvOverrides(
 
 export function buildEffectiveSettings(
   stored: Partial<CrawlerSettings> | null | undefined,
-  env: NodeJS.ProcessEnv
+  env: NodeJS.ProcessEnv,
+  options?: NormaliseOptions
 ) {
-  const base = normaliseCrawlerSettings(stored ?? {});
-  const { settings, overrides } = applyEnvOverrides(base, env);
+  const base = normaliseCrawlerSettings(stored ?? {}, options);
+  const { settings: overridden, overrides } = applyEnvOverrides(base, env, options);
+  const settings = normaliseCrawlerSettings(overridden, options);
   if (!settings.zgbs_paths.length) {
     settings.zgbs_paths = [...DEFAULT_ZGBS_PATHS];
   }
@@ -338,7 +365,7 @@ export function serialiseStringArray(values: string[]): string {
   return values.join("\n");
 }
 
-export function toSettingsPayload(input: unknown): CrawlerSettings {
+export function toSettingsPayload(input: unknown, options?: NormaliseOptions): CrawlerSettings {
   if (typeof input !== "object" || input === null) {
     return { ...DEFAULT_CRAWLER_SETTINGS };
   }
@@ -392,5 +419,5 @@ export function toSettingsPayload(input: unknown): CrawlerSettings {
       base[key] = raw as CrawlerSettings[typeof key];
     }
   }
-  return normaliseCrawlerSettings(base);
+  return normaliseCrawlerSettings(base, options);
 }

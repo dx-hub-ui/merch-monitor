@@ -265,7 +265,9 @@ function shouldProcess(item: QueueItem, now: Date) {
   await pg.connect();
 
   const stored = await loadStoredSettings(pg);
-  const { settings: effectiveSettings, overrides } = buildEffectiveSettings(stored, process.env);
+  const { settings: effectiveSettings, overrides } = buildEffectiveSettings(stored, process.env, {
+    bypassLimits: true
+  });
   const stateMap = await loadCrawlState(pg);
 
   const perPageDelay = delayRangeFromSettings(
