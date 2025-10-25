@@ -108,7 +108,13 @@ export async function GET(req: NextRequest) {
     count ?? (products.length < limit ? Math.max(offset + products.length, 0) : offset + products.length + 1);
 
   const respond = (items: ProductRow[]) => {
-    const response = NextResponse.json(items, { status: 200 });
+    const response = NextResponse.json(
+      {
+        products: items,
+        total
+      },
+      { status: 200 }
+    );
     response.headers.set("x-plan-tier", entitlements.planTier);
     response.headers.set("x-total-count", total.toString());
     return response;
