@@ -30,7 +30,7 @@ describe("crawler storage", () => {
   });
 
   it("upserts products with product_type and merch_flag_source", async () => {
-    await upsertProduct(pg, product);
+    const result = await upsertProduct(pg, product);
     expect(query).toHaveBeenCalledTimes(3);
     const upsertCall = query.mock.calls[1];
     expect(upsertCall[0]).toContain("product_type");
@@ -38,15 +38,18 @@ describe("crawler storage", () => {
     const historyCall = query.mock.calls[2];
     expect(historyCall[0]).toContain("product_type");
     expect(historyCall[1]).toContain("logo");
+    expect(result.inserted).toBe(false);
   });
 
   it("saves parsed products when present", async () => {
-    await saveParsedProduct(pg, { product, variants: [] });
+    const result = await saveParsedProduct(pg, { product, variants: [] });
     expect(query).toHaveBeenCalled();
+    expect(result.saved).toBe(true);
   });
 
   it("skips saving when parsed product is null", async () => {
-    await saveParsedProduct(pg, { product: null, variants: [] });
+    const result = await saveParsedProduct(pg, { product: null, variants: [] });
     expect(query).not.toHaveBeenCalled();
+    expect(result.saved).toBe(false);
   });
 });

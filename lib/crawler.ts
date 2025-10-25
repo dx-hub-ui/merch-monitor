@@ -1,10 +1,40 @@
 import { chromium, type Browser } from "playwright";
 import * as cheerio from "cheerio";
-import { type CrawlerSettings, DEFAULT_ZGBS_PATHS, type OverrideMap, type ProductType } from "./crawler-settings";
+import {
+  type CrawlerSettings,
+  DEFAULT_ZGBS_PATHS,
+  type OverrideMap,
+  type ProductType,
+  DEFAULT_NEW_RELEASE_PATHS,
+  DEFAULT_MOVERS_PATHS
+} from "./crawler-settings";
 
 const UA = "MerchWatcherBot/2.0 (+https://merchwatcher.com/contact)";
 const BASE = "https://www.amazon.com";
 const DP_PATH = "/dp/";
+
+export type PriorityLevel = "P0" | "P1" | "P2" | "P3";
+
+const PRIORITY_ORDER: Record<PriorityLevel, number> = {
+  P0: 0,
+  P1: 1,
+  P2: 2,
+  P3: 3
+};
+
+export type DiscoverySource = "best-sellers" | "new-releases" | "movers" | "search" | "variant" | "state";
+
+export type DiscoveryCandidate = {
+  asin: string;
+  url: string;
+  priority: PriorityLevel;
+  source: DiscoverySource;
+  page: number;
+  path?: string;
+  keyword?: string;
+};
+
+export type DelayRange = { min: number; max: number };
 
 export type Product = {
   asin: string;
@@ -28,20 +58,48 @@ export type ParsedProduct = {
   variants: string[];
 };
 
-const CONTEXT_KEYWORDS = [
-  "fashion",
-  "clothing",
-  "apparel",
-  "novelty",
-  "shirt",
-  "tshirt",
-  "t-shirt",
-  "hoodie",
-  "sweatshirt"
-];
-
 function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function randomInRange(min: number, max: number) {
+  if (max <= min) return min;
+  return min + Math.random() * (max - min);
+}
+
+export function computeJitteredDelay(range: DelayRange) {
+  const base = randomInRange(range.min, range.max);
+  const jitter = 1 + randomInRange(0.2, 0.4);
+  return Math.round(base * jitter);
+}
+
+function toCandidate(
+  href: string | undefined,
+  meta: Omit<DiscoveryCandidate, "asin" | "url">
+): DiscoveryCandidate | null {
+  if (!href) return null;
+  const absolute = href.startsWith("http") ? href : `${BASE}${href}`;
+  const canonical = canonicalizeUrl(absolute);
+  if (!canonical) return null;
+  const asin = extractAsin(canonical);
+  if (!asin) return null;
+  return {
+    ...meta,
+    asin,
+    url: canonical
+  };
+}
+
+function resolveListingUrl(path: string, pageParam: string, page: number) {
+  try {
+    const url = path.startsWith("http") ? new URL(path) : new URL(path, BASE);
+    if (pageParam) {
+      url.searchParams.set(pageParam, String(page));
+    }
+    return url.toString();
+  } catch {
+    return null;
+  }
 }
 
 export function moneyToCents(txt?: string | null) {
@@ -192,16 +250,26 @@ function collectText($: cheerio.CheerioAPI, selectors: string[]): string[] {
   return values;
 }
 
-function hasFashionContext($: cheerio.CheerioAPI) {
+function extractBreadcrumbSegments($: cheerio.CheerioAPI) {
   const segments = collectText($, [
-    "#wayfinding-breadcrumbs_feature_div",
-    "#wayfinding-breadcrumbs_container",
-    ".a-breadcrumb",
-    "#nav-subnav",
-    "#nav-subnav-content"
+    "#wayfinding-breadcrumbs_feature_div li",
+    "#wayfinding-breadcrumbs_container li",
+    ".a-breadcrumb a",
+    "#nav-subnav a",
+    "#nav-subnav-content a"
   ]);
-  const combined = segments.join(" ").toLowerCase();
-  return CONTEXT_KEYWORDS.some(keyword => combined.includes(keyword));
+  const cleaned = new Set(
+    segments
+      .map(segment => segment.replace(/[›|>]/g, " ").replace(/\s+/g, " ").trim())
+      .filter(Boolean)
+  );
+  return Array.from(cleaned);
+}
+
+function hasFashionContext($: cheerio.CheerioAPI) {
+  const breadcrumbs = extractBreadcrumbSegments($);
+  if (!breadcrumbs.length) return false;
+  return breadcrumbs.some(segment => /\b(fashion|novelty)\b/i.test(segment));
 }
 
 function detectMerchSignal($: cheerio.CheerioAPI): { source: string | null; context: boolean } {
@@ -315,8 +383,74 @@ async function fetchListing(url: string): Promise<cheerio.CheerioAPI> {
       accept: "text/html,application/xhtml+xml"
     }
   });
+  if (!response.ok) {
+    throw new Error(`Failed to load listing ${url}: ${response.status}`);
+  }
   const html = await response.text();
+  const lowerHtml = html.toLowerCase();
+  if (
+    /\/errors\/validatecaptcha/i.test(response.url) ||
+    lowerHtml.includes("type the characters you see") ||
+    lowerHtml.includes("enter the characters you see")
+  ) {
+    throw new Error(`captcha encountered on listing ${url}`);
+  }
   return cheerio.load(html);
+}
+
+type ListingCollectorOptions = {
+  paths: string[];
+  maxPages: number;
+  source: Exclude<DiscoverySource, "search" | "variant" | "state">;
+  priorityForPage: (page: number) => PriorityLevel;
+  perPageDelay: DelayRange;
+  maxResults: number;
+  pageParam?: string;
+};
+
+async function collectListingCandidates(options: ListingCollectorOptions): Promise<DiscoveryCandidate[]> {
+  const {
+    paths,
+    maxPages,
+    source,
+    priorityForPage,
+    perPageDelay,
+    maxResults,
+    pageParam = "pg"
+  } = options;
+  const results: DiscoveryCandidate[] = [];
+  const seen = new Set<string>();
+
+  for (const path of paths) {
+    for (let page = 1; page <= maxPages; page += 1) {
+      const listUrl = resolveListingUrl(path, pageParam, page);
+      if (!listUrl) continue;
+      try {
+        const $ = await fetchListing(listUrl);
+        $('a[href*="/dp/"]').each((_, anchor) => {
+          if (results.length >= maxResults) return false;
+          const candidate = toCandidate($(anchor).attr("href"), {
+            priority: priorityForPage(page),
+            source,
+            page,
+            path
+          });
+          if (!candidate) return;
+          if (seen.has(candidate.asin)) return;
+          seen.add(candidate.asin);
+          results.push(candidate);
+        });
+      } catch (error) {
+        console.warn(`Failed to load ${listUrl}`, error);
+      }
+      if (results.length >= maxResults) {
+        return results;
+      }
+      await delay(computeJitteredDelay(perPageDelay));
+    }
+  }
+
+  return results;
 }
 
 async function getPlaywrightBrowser(): Promise<Browser> {
@@ -325,44 +459,55 @@ async function getPlaywrightBrowser(): Promise<Browser> {
 
 export async function fetchHTML(url: string, browser?: Browser) {
   const instance = browser ?? (await getPlaywrightBrowser());
-  const context = await instance.newContext({ userAgent: UA, locale: "en-US" });
-  const page = await context.newPage();
-  await page.route("**/*.{png,jpg,jpeg,gif,webp,mp4,svg,woff,woff2,ttf}", route => route.abort());
-  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45_000 });
-  const html = await page.content();
-  const finalUrl = page.url();
-  await context.close();
-  if (!browser) {
-    await instance.close();
-  }
-  return { html, finalUrl };
-}
+  let lastError: unknown = null;
 
-export async function collectFromZgbs(settings: CrawlerSettings, maxUrls: number): Promise<string[]> {
-  if (!settings.use_best_sellers) return [];
-  const paths = settings.zgbs_paths.length ? settings.zgbs_paths : DEFAULT_ZGBS_PATHS;
-  const urls = new Set<string>();
+  const looksLikeCaptcha = (finalUrl: string, html: string) => {
+    const lowerHtml = html.toLowerCase();
+    return (
+      /\/errors\/validatecaptcha/i.test(finalUrl) ||
+      lowerHtml.includes("type the characters you see") ||
+      lowerHtml.includes("enter the characters you see") ||
+      /<title>\s*robot check\s*<\/title>/i.test(html)
+    );
+  };
 
-  for (const path of paths) {
-    for (let pageIndex = 1; pageIndex <= settings.zgbs_pages; pageIndex += 1) {
-      const listUrl = `${BASE}${path}?pg=${pageIndex}`;
-      try {
-        const $ = await fetchListing(listUrl);
-        $('a[href*="/dp/"]').each((_, anchor) => {
-          const href = $(anchor).attr("href");
-          if (!href) return;
-          const canonical = canonicalizeUrl(href.startsWith("http") ? href : `${BASE}${href}`);
-          if (canonical) urls.add(canonical);
-        });
-      } catch (error) {
-        console.warn(`Failed to load ${listUrl}`, error);
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const context = await instance.newContext({ userAgent: UA, locale: "en-US" });
+    try {
+      const page = await context.newPage();
+      await page.route("**/*.{png,jpg,jpeg,gif,webp,mp4,svg,woff,woff2,ttf}", route => route.abort());
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45_000 });
+      const html = await page.content();
+      const finalUrl = page.url();
+      await context.close();
+      if (looksLikeCaptcha(finalUrl, html)) {
+        const error = new Error(`captcha detected for ${finalUrl}`);
+        error.name = "CaptchaError";
+        throw error;
       }
-      if (urls.size >= maxUrls) return Array.from(urls).slice(0, maxUrls);
-      await delay(2000);
+      if (!browser) {
+        await instance.close();
+      }
+      return { html, finalUrl };
+    } catch (error) {
+      lastError = error;
+      await context.close();
+      const isCaptcha = (error as Error | undefined)?.name === "CaptchaError";
+      if (isCaptcha || attempt === 3) {
+        if (!browser) {
+          await instance.close();
+        }
+        throw error;
+      }
+      const backoff = Math.min(60_000, 5_000 * Math.pow(2, attempt - 1));
+      await delay(backoff + Math.floor(Math.random() * 1_000));
     }
   }
 
-  return Array.from(urls).slice(0, maxUrls);
+  if (!browser) {
+    await instance.close();
+  }
+  throw lastError ?? new Error("Failed to fetch HTML");
 }
 
 function buildSearchUrl(settings: CrawlerSettings, keyword: string, page: number) {
@@ -386,9 +531,16 @@ function buildSearchUrl(settings: CrawlerSettings, keyword: string, page: number
   return `${BASE}/s?${params.toString()}`;
 }
 
-export async function collectFromSearch(settings: CrawlerSettings, maxUrls: number): Promise<string[]> {
+type SearchCollectorOptions = {
+  settings: CrawlerSettings;
+  perPageDelay: DelayRange;
+  maxResults: number;
+};
+
+async function collectSearchCandidates({ settings, perPageDelay, maxResults }: SearchCollectorOptions): Promise<DiscoveryCandidate[]> {
   if (!settings.use_search || !settings.search_keywords.length) return [];
-  const urls = new Set<string>();
+  const results: DiscoveryCandidate[] = [];
+  const seen = new Set<string>();
 
   for (const keyword of settings.search_keywords) {
     for (let page = 1; page <= settings.search_pages; page += 1) {
@@ -396,30 +548,102 @@ export async function collectFromSearch(settings: CrawlerSettings, maxUrls: numb
       try {
         const $ = await fetchListing(listUrl);
         $('a[href*="/dp/"]').each((_, anchor) => {
-          const href = $(anchor).attr("href");
-          if (!href) return;
-          const canonical = canonicalizeUrl(href.startsWith("http") ? href : `${BASE}${href}`);
-          if (canonical) urls.add(canonical);
+          if (results.length >= maxResults) return false;
+          const candidate = toCandidate($(anchor).attr("href"), {
+            priority: page <= 2 ? "P2" : "P3",
+            source: "search",
+            page,
+            keyword
+          });
+          if (!candidate) return;
+          if (seen.has(candidate.asin)) return;
+          seen.add(candidate.asin);
+          results.push(candidate);
         });
       } catch (error) {
         console.warn(`Failed to load ${listUrl}`, error);
       }
-      if (urls.size >= maxUrls) return Array.from(urls).slice(0, maxUrls);
-      await delay(2000);
+      if (results.length >= maxResults) {
+        return results;
+      }
+      await delay(computeJitteredDelay(perPageDelay));
     }
   }
 
-  return Array.from(urls).slice(0, maxUrls);
+  return results;
 }
 
-export async function collectCandidateUrls(settings: CrawlerSettings): Promise<string[]> {
-  const budget = Math.max(settings.max_items * 4, settings.max_items + 50);
-  const [zgbs, search] = await Promise.all([
-    collectFromZgbs(settings, budget),
-    collectFromSearch(settings, budget)
-  ]);
-  const combined = new Set<string>([...zgbs, ...search]);
-  return Array.from(combined);
+export async function collectDiscoveryCandidates(
+  settings: CrawlerSettings,
+  options: { maxResults?: number; perPageDelay: DelayRange }
+): Promise<DiscoveryCandidate[]> {
+  const maxResults = options.maxResults ?? Math.max(settings.max_items_per_run * 5, 500);
+  const perPageDelay = options.perPageDelay;
+  const results: DiscoveryCandidate[] = [];
+
+  const append = (candidates: DiscoveryCandidate[]) => {
+    for (const candidate of candidates) {
+      if (results.length >= maxResults) break;
+      results.push(candidate);
+    }
+  };
+
+  if (settings.use_best_sellers && results.length < maxResults) {
+    const paths = settings.zgbs_paths.length ? settings.zgbs_paths : DEFAULT_ZGBS_PATHS;
+    append(
+      await collectListingCandidates({
+        paths,
+        maxPages: settings.zgbs_pages,
+        source: "best-sellers",
+        priorityForPage: page => (page <= 5 ? "P1" : "P3"),
+        perPageDelay,
+        maxResults: maxResults - results.length,
+        pageParam: "pg"
+      })
+    );
+  }
+
+  if (settings.use_new_releases && results.length < maxResults) {
+    const paths = settings.new_paths.length ? settings.new_paths : DEFAULT_NEW_RELEASE_PATHS;
+    append(
+      await collectListingCandidates({
+        paths,
+        maxPages: settings.new_pages,
+        source: "new-releases",
+        priorityForPage: page => (page <= 2 ? "P0" : "P3"),
+        perPageDelay,
+        maxResults: maxResults - results.length,
+        pageParam: "page"
+      })
+    );
+  }
+
+  if (settings.use_movers && results.length < maxResults) {
+    const paths = settings.movers_paths.length ? settings.movers_paths : DEFAULT_MOVERS_PATHS;
+    append(
+      await collectListingCandidates({
+        paths,
+        maxPages: settings.movers_pages,
+        source: "movers",
+        priorityForPage: page => (page <= 2 ? "P0" : "P3"),
+        perPageDelay,
+        maxResults: maxResults - results.length,
+        pageParam: "page"
+      })
+    );
+  }
+
+  if (settings.use_search && results.length < maxResults) {
+    append(
+      await collectSearchCandidates({
+        settings,
+        perPageDelay,
+        maxResults: maxResults - results.length
+      })
+    );
+  }
+
+  return results;
 }
 
 export function merchSource($: cheerio.CheerioAPI): string | null {
@@ -505,13 +729,34 @@ export async function parseProduct(url: string, browser?: Browser): Promise<Pars
   };
 }
 
-export function normaliseCandidateQueue(urls: string[]): string[] {
-  const unique = new Set<string>();
-  for (const url of urls) {
-    const canonical = canonicalizeUrl(url);
-    if (canonical) unique.add(canonical);
+export function normaliseCandidateQueue(candidates: DiscoveryCandidate[]): DiscoveryCandidate[] {
+  const byAsin = new Map<string, DiscoveryCandidate>();
+
+  for (const candidate of candidates) {
+    const canonical = canonicalizeUrl(candidate.url);
+    if (!canonical) continue;
+    const asin = extractAsin(canonical);
+    if (!asin) continue;
+    const enriched: DiscoveryCandidate = { ...candidate, asin, url: canonical };
+    const existing = byAsin.get(asin);
+    if (!existing) {
+      byAsin.set(asin, enriched);
+      continue;
+    }
+    const existingScore = PRIORITY_ORDER[existing.priority];
+    const incomingScore = PRIORITY_ORDER[enriched.priority];
+    if (incomingScore < existingScore) {
+      byAsin.set(asin, enriched);
+    } else if (incomingScore === existingScore) {
+      const existingPage = existing.page ?? Number.POSITIVE_INFINITY;
+      const incomingPage = enriched.page ?? Number.POSITIVE_INFINITY;
+      if (incomingPage < existingPage) {
+        byAsin.set(asin, enriched);
+      }
+    }
   }
-  return Array.from(unique);
+
+  return Array.from(byAsin.values());
 }
 
 export type EffectiveSettingsLog = {

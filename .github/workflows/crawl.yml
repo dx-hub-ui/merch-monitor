@@ -3,6 +3,8 @@ name: Crawl and metrics
 on:
   schedule:
     - cron: "0 */6 * * *"
+    - cron: "30 3 * * *"
+    - cron: "0 4 * * 1,3,5"
   workflow_dispatch:
 
 jobs:
@@ -11,7 +13,7 @@ jobs:
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      MAX_ITEMS: ${{ secrets.MAX_ITEMS }}
+      MAX_ITEMS_PER_RUN: ${{ secrets.MAX_ITEMS_PER_RUN }}
       ZGBS_PAGES: ${{ secrets.ZGBS_PAGES }}
       ZGBS_PATHS: ${{ secrets.ZGBS_PATHS }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -24,6 +26,24 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
+      - name: Configure crawler for high-frequency run
+        if: github.event.schedule == '0 */6 * * *'
+        run: |
+          echo "USE_SEARCH=false" >> "$GITHUB_ENV"
+          echo "CRAWLER_RUN_MODE=high-frequency" >> "$GITHUB_ENV"
+      - name: Configure crawler for keyword sweep
+        if: github.event.schedule == '30 3 * * *'
+        run: |
+          echo "USE_BEST_SELLERS=false" >> "$GITHUB_ENV"
+          echo "USE_NEW_RELEASES=false" >> "$GITHUB_ENV"
+          echo "USE_MOVERS=false" >> "$GITHUB_ENV"
+          echo "USE_SEARCH=true" >> "$GITHUB_ENV"
+          echo "CRAWLER_RUN_MODE=keyword-sweep" >> "$GITHUB_ENV"
+      - name: Configure crawler for backlog touch
+        if: github.event.schedule == '0 4 * * 1,3,5'
+        run: |
+          echo "USE_SEARCH=false" >> "$GITHUB_ENV"
+          echo "CRAWLER_RUN_MODE=backlog-touch" >> "$GITHUB_ENV"
       - name: Crawl merch listings
         run: npm run crawl
       - name: Generate embeddings
