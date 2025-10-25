@@ -43,16 +43,18 @@ type SemanticSearchResult = { asin: string; content: string; score: number };
 
 export type AuthenticatedSession = Pick<Session, "user">;
 
+const E2E_BYPASS_USER: AuthenticatedSession["user"] = {
+  id: "e2e-admin",
+  email: "admin@example.com",
+  aud: "authenticated",
+  created_at: "1970-01-01T00:00:00.000Z",
+  app_metadata: { provider: "email", is_admin: true },
+  user_metadata: { is_admin: true }
+};
+
 export async function getSession(): Promise<AuthenticatedSession | null> {
   if (process.env.E2E_BYPASS_AUTH === "true") {
-    return {
-      user: {
-        id: "e2e-admin",
-        email: "admin@example.com",
-        app_metadata: { provider: "email", is_admin: true },
-        user_metadata: { is_admin: true }
-      }
-    } satisfies AuthenticatedSession;
+    return { user: E2E_BYPASS_USER } satisfies AuthenticatedSession;
   }
   const supabase = createServerSupabaseClient();
   const {
