@@ -12,6 +12,8 @@ import {
 const UA = "MerchWatcherBot/2.0 (+https://merchwatcher.com/contact)";
 const BASE = "https://www.amazon.com";
 const DP_PATH = "/dp/";
+const MAX_LISTING_FETCH_ATTEMPTS = 5;
+const RETRYABLE_LISTING_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
 
 export type PriorityLevel = "P0" | "P1" | "P2" | "P3";
 
@@ -71,6 +73,20 @@ export function computeJitteredDelay(range: DelayRange) {
   const base = randomInRange(range.min, range.max);
   const jitter = 1 + randomInRange(0.2, 0.4);
   return Math.round(base * jitter);
+}
+
+function computeListingRetryDelay(attempt: number, status?: number) {
+  const normalisedAttempt = Math.max(1, attempt);
+  const baseForStatus =
+    status === 429
+      ? 4000
+      : status === 503
+        ? 2500
+        : 1500;
+  const maxForStatus = status === 429 ? 20000 : status === 503 ? 15000 : 10000;
+  const backoff = Math.min(maxForStatus, baseForStatus * Math.pow(2, normalisedAttempt - 1));
+  const jitterMultiplier = 1 + randomInRange(0.2, 0.4);
+  return Math.round(backoff * jitterMultiplier);
 }
 
 function toCandidate(
@@ -377,25 +393,73 @@ export function classifyProductType(parts: {
 }
 
 async function fetchListing(url: string): Promise<cheerio.CheerioAPI> {
-  const response = await fetch(url, {
-    headers: {
-      "user-agent": UA,
-      accept: "text/html,application/xhtml+xml"
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= MAX_LISTING_FETCH_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          "user-agent": UA,
+          accept: "text/html,application/xhtml+xml"
+        }
+      });
+
+      if (!response.ok) {
+        const error: Error & { status?: number } = new Error(
+          `Failed to load listing ${url}: ${response.status}`
+        );
+        error.status = response.status;
+
+        if (RETRYABLE_LISTING_STATUS_CODES.has(response.status) && attempt < MAX_LISTING_FETCH_ATTEMPTS) {
+          lastError = error;
+          await delay(computeListingRetryDelay(attempt, response.status));
+          continue;
+        }
+
+        throw error;
+      }
+
+      const html = await response.text();
+      const lowerHtml = html.toLowerCase();
+      if (
+        /\/errors\/validatecaptcha/i.test(response.url) ||
+        lowerHtml.includes("type the characters you see") ||
+        lowerHtml.includes("enter the characters you see")
+      ) {
+        throw new Error(`captcha encountered on listing ${url}`);
+      }
+
+      return cheerio.load(html);
+    } catch (error) {
+      lastError = error;
+
+      if (error instanceof Error && error.message.includes("captcha encountered")) {
+        throw error;
+      }
+
+      const status = (error as { status?: number }).status;
+      if (status && !RETRYABLE_LISTING_STATUS_CODES.has(status)) {
+        throw error instanceof Error ? error : new Error(String(error));
+      }
+
+      if (attempt < MAX_LISTING_FETCH_ATTEMPTS) {
+        await delay(computeListingRetryDelay(attempt, status));
+        continue;
+      }
+
+      if (error instanceof Error) {
+        throw error;
+      }
+
+      throw new Error(`Failed to load listing ${url}: ${String(error)}`);
     }
-  });
-  if (!response.ok) {
-    throw new Error(`Failed to load listing ${url}: ${response.status}`);
   }
-  const html = await response.text();
-  const lowerHtml = html.toLowerCase();
-  if (
-    /\/errors\/validatecaptcha/i.test(response.url) ||
-    lowerHtml.includes("type the characters you see") ||
-    lowerHtml.includes("enter the characters you see")
-  ) {
-    throw new Error(`captcha encountered on listing ${url}`);
+
+  if (lastError instanceof Error) {
+    throw lastError;
   }
-  return cheerio.load(html);
+
+  throw new Error(`Failed to load listing ${url}: unknown error`);
 }
 
 type ListingCollectorOptions = {
