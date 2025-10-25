@@ -46,8 +46,9 @@ function parsePriceCents(priceWhole: string | null, priceFraction: string | null
   if (!priceWhole) return null;
   const whole = priceWhole.replace(/[^0-9]/g, "");
   if (!whole) return null;
-  const fraction = priceFraction?.replace(/[^0-9]/g, "") ?? "00";
-  const paddedFraction = fraction.padEnd(2, "0").slice(0, 2);
+  const fractionDigits = priceFraction?.replace(/[^0-9]/g, "") ?? "";
+  const sanitizedFraction = fractionDigits === "" ? "0" : fractionDigits;
+  const paddedFraction = sanitizedFraction.padEnd(2, "0").slice(0, 2);
   return parseInt(whole, 10) * 100 + parseInt(paddedFraction, 10);
 }
 
