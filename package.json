@@ -16,6 +16,7 @@
     "metrics": "tsx scripts/metrics.ts",
     "jobs": "tsx scripts/run-jobs.ts",
     "jobs:dry-run": "tsx scripts/run-jobs.ts --dry-run",
+    "workflow": "tsx scripts/run-workflow.ts",
     "keywords:suggest": "tsx scripts/suggest.ts",
     "keywords:serp": "tsx scripts/serp.ts",
     "keywords:embed": "tsx scripts/embed_keywords.ts",
