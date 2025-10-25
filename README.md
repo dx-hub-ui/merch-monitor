@@ -174,7 +174,7 @@ The crawler continuously monitors Amazon’s high-signal surfaces while enforcin
 ### Keyword intelligence
 
 - `scripts/suggest.ts` performs breadth-first Amazon autocomplete expansion for seed keywords/aliases, dedupes using NFKC-normalised tokens, and persists both the suggestion stream and canonical keyword records.
-- `scripts/serp.ts` ingests queued keyword jobs, walks 1–5 SERP pages with a throttled Amazon search scrape (respecting ≥300 ms delays plus jitter), applies a lightweight Merch-on-Demand text heuristic, and stores snapshots in `keyword_serp_snapshot` for downstream metrics.
+- `scripts/serp.ts` ingests queued keyword jobs, walks 1–5 SERP pages with a throttled Amazon search scrape (respecting ≥300 ms delays plus jitter), applies a lightweight Merch-on-Demand text heuristic, and stores snapshots in `keyword_serp_snapshot` with a consistent batch timestamp for downstream metrics.
 - `scripts/metrics.ts` also aggregates the most recent snapshots into `keyword_metrics_daily`, applying competition/difficulty/opportunity scoring, entropy-based diversity, price IQR, and 7d/30d momentum deltas.
 - `scripts/embed_keywords.ts` back-fills and refreshes OpenAI embeddings for keyword+alias strings so semantic expansion stays in sync with the autocomplete corpus.
 - Keyword list management persists to `keyword_lists` and `keyword_list_items`, enabling private campaign sets, launch cohorts, and research groups per user. When those tables are missing (for example before running the `0004_keyword_lists` migration) the application now falls back to a read-only mode that surfaces a friendly message instead of surfacing Supabase `PGRST205` errors.

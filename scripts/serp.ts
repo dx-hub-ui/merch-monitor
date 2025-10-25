@@ -161,7 +161,7 @@ async function storeSnapshot(
   }
 
   const values: string[] = [];
-  const params: (string | number | boolean | null)[] = [];
+  const params: (string | number | boolean | Date | null)[] = [];
 
   const fetchedAt = new Date();
 
