@@ -9,7 +9,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect("/login");
   }
 
-  const profile = await getUserProfile(session.user.id as Parameters<typeof getUserProfile>[0]);
+  let profile: Awaited<ReturnType<typeof getUserProfile>> = null;
+  try {
+    profile = await getUserProfile(session.user.id as Parameters<typeof getUserProfile>[0]);
+  } catch (error) {
+    console.error("Failed to load user profile for layout", error);
+  }
   const isAdmin = isAdminSession(session);
 
   const displayName =
