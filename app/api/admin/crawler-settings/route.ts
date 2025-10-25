@@ -55,14 +55,14 @@ async function fetchStoredSettingsSupabase() {
     throw settingsError;
   }
 
-  const stored = normaliseCrawlerSettings(parseSettingsRecord(data));
+  const stored = normaliseCrawlerSettings(parseSettingsRecord(data), { bypassLimits: true });
   return { stored, canEdit };
 }
 
 async function handleGet() {
   if (isBypassMode()) {
     const store = getE2EStore();
-    const { settings, overrides } = buildEffectiveSettings(store.stored, process.env);
+    const { settings, overrides } = buildEffectiveSettings(store.stored, process.env, { bypassLimits: true });
     return NextResponse.json({
       stored: store.stored,
       effective: settings,
@@ -74,7 +74,7 @@ async function handleGet() {
 
   try {
     const { stored, canEdit } = await fetchStoredSettingsSupabase();
-    const { settings, overrides } = buildEffectiveSettings(stored, process.env);
+    const { settings, overrides } = buildEffectiveSettings(stored, process.env, { bypassLimits: canEdit });
     return NextResponse.json({ stored, effective: settings, overrides, canEdit });
   } catch (error) {
     const response = NextResponse.json({ stored: DEFAULT_CRAWLER_SETTINGS, effective: DEFAULT_CRAWLER_SETTINGS }, { status: 200 });
@@ -84,12 +84,13 @@ async function handleGet() {
 }
 
 async function handlePost(req: NextRequest) {
-  const payload = toSettingsPayload(await req.json().catch(() => ({})));
+  const rawPayload = await req.json().catch(() => ({}));
 
   if (isBypassMode()) {
     const store = getE2EStore();
+    const payload = toSettingsPayload(rawPayload, { bypassLimits: true });
     store.stored = payload;
-    const { settings, overrides } = buildEffectiveSettings(store.stored, process.env);
+    const { settings, overrides } = buildEffectiveSettings(store.stored, process.env, { bypassLimits: true });
     return NextResponse.json({ stored: store.stored, effective: settings, overrides, canEdit: true, bypass: true });
   }
 
@@ -107,6 +108,8 @@ async function handlePost(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const payload = toSettingsPayload(rawPayload, { bypassLimits: true });
+
   const record: Database["public"]["Tables"]["crawler_settings"]["Insert"] = {
     id: 1,
     ...payload,
@@ -123,7 +126,7 @@ async function handlePost(req: NextRequest) {
     return NextResponse.json({ error: upsertError.message }, { status: 400 });
   }
 
-  const { settings, overrides } = buildEffectiveSettings(payload, process.env);
+  const { settings, overrides } = buildEffectiveSettings(payload, process.env, { bypassLimits: true });
   return NextResponse.json({ stored: payload, effective: settings, overrides, canEdit: true });
 }
 

@@ -192,6 +192,8 @@ Once the new JWT propagates, the crawler settings form unlocks editing controls 
 
 Administrators also bypass all plan usage limits. Admin requests skip keyword quotas, saved list caps, historical lookback restrictions, and other plan-based feature toggles so internal teams can diagnose issues without upgrading their subscription metadata first.
 
+Crawler discovery throttles now respect the same exemption: when an administrator updates `/admin/crawler`, the stored settings no longer enforce the 5,000-item, 10-page, or recrawl delay ceilings. Admin edits still honour the documented minimums and the environment override banner highlights any runtime clamps, but the Playwright worker now runs with the exact budgets configured in the UI.
+
 ## Visual design
 
 The application adopts a violet-forward palette inspired by the shared concept art: a deep indigo to electric purple gradient envelopes each page, while surface elements float on soft, blurred glass panels. Interactive accents use the updated `brand` Tailwind color tokens (`brand.light`, `brand`, `brand.dark`, `brand.deeper`) so buttons, focus states, and charts inherit the new scheme automatically in both light and dark themes.

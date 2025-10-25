@@ -31,7 +31,7 @@ describe("admin crawler settings route", () => {
   it("returns stored settings with effective values", async () => {
     getUser.mockResolvedValue({ data: { user: { app_metadata: { is_admin: true } } } });
     selectChain.maybeSingle.mockResolvedValue({
-      data: { use_best_sellers: false, max_items_per_run: 200 },
+      data: { use_best_sellers: false, max_items_per_run: 20_000 },
       error: null
     });
     const { GET } = await import("@/app/api/admin/crawler-settings/route");
@@ -39,7 +39,7 @@ describe("admin crawler settings route", () => {
     const payload = await response.json();
     expect(response.status).toBe(200);
     expect(payload.stored.use_best_sellers).toBe(false);
-    expect(payload.effective.max_items_per_run).toBe(200);
+    expect(payload.effective.max_items_per_run).toBe(20_000);
   });
 
   it("forbids non-admin updates", async () => {
@@ -59,10 +59,15 @@ describe("admin crawler settings route", () => {
     const { POST } = await import("@/app/api/admin/crawler-settings/route");
     const request = new NextRequest("http://localhost/api/admin/crawler-settings", {
       method: "POST",
-      body: JSON.stringify({ max_items_per_run: 350 })
+      body: JSON.stringify({ max_items_per_run: 25_000 })
     });
     const response = await POST(request);
     expect(response.status).toBe(200);
-    expect(upsertFn).toHaveBeenCalled();
+    expect(upsertFn).toHaveBeenCalledWith(
+      expect.objectContaining({ max_items_per_run: 25_000 }),
+      { onConflict: "id" }
+    );
+    const payload = await response.json();
+    expect(payload.effective.max_items_per_run).toBe(25_000);
   });
 });
