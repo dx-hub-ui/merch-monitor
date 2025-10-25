@@ -56,8 +56,7 @@ PER_PRODUCT_DELAY_MS_MAX=6000
 
 Each key listed above overrides the admin-configured crawler settings. Omit a variable to keep the stored value.
 
-Boolean overrides are case-insensitive (`true`/`false`), numeric overrides are clamped to the allowed ranges (Best Sellers pages: 1–10, search pages: 1–5, priority recrawl windows, and 100–5000 for `MAX_ITEMS_PER_RUN`), and array overrides accept comma- or newline-delimited values. Empty strings are treated as `null` so
-the dashboard falls back to the stored defaults.
+Boolean overrides are case-insensitive (`true`/`false`), numeric overrides are clamped to the allowed ranges (Best Sellers pages: 1–10, search pages: 1–5, priority recrawl windows, and 100–5000 for `MAX_ITEMS_PER_RUN`), and array overrides accept comma- or newline-delimited values (multi-line `.env` entries are split the same way as the admin UI inputs). Empty strings are treated as `null` so the dashboard falls back to the stored defaults.
 
 All command-line scripts use [`dotenv`](https://github.com/motdotla/dotenv) and automatically hydrate `process.env` from the nearest `.env` file, so keep your local environment file committed to disk before running crawls or background jobs.
 
