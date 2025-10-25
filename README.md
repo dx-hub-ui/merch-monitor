@@ -25,6 +25,8 @@ STRIPE_PRICE_BASIC=price_basic
 STRIPE_PRICE_PRO=price_pro
 # Supabase service role key is required for cron jobs/webhooks
 SUPABASE_SERVICE_ROLE_KEY=...
+# Public write token for Vercel Blob uploads (used for avatars)
+BLOB_READ_WRITE_TOKEN=...
 # optional crawler overrides
 MAX_ITEMS=500
 USE_BEST_SELLERS=true
@@ -57,6 +59,7 @@ psql "$SUPABASE_DB_URL" -f supabase/migrations/0001_init.sql
 psql "$SUPABASE_DB_URL" -f supabase/migrations/0002_product_type_and_crawler_settings.sql
 psql "$SUPABASE_DB_URL" -f supabase/migrations/0003_keywords.sql
 psql "$SUPABASE_DB_URL" -f supabase/migrations/0004_billing.sql
+psql "$SUPABASE_DB_URL" -f supabase/migrations/0005_profile_fields.sql
 ```
 
 The migrations install `pgvector`, create the `merch_*` tables, history trigger, keyword intelligence schema, semantic search RPCs, and Row Level Security policies. They are idempotent and safe to reapply.
@@ -118,7 +121,8 @@ Every keyword exploration request (`POST /api/keywords/explore`) normalises inpu
 - **Product detail**: Product metadata, historical charts (BSR/reviews/price), similar items via pgvector.
 - **Admin / Crawler**: Admin-only control panel for discovery rules with environment override indicators and reset-to-defaults action. The API now falls back to default settings with an `x-error` header when Supabase returns a missing session so anonymous health checks succeed without compilation warnings.
 - **Account**: Change password and sign out.
-- **Header navigation**: Persistent links to Dashboard, Trends, and the Keywords intelligence suite (plus the admin Crawler when applicable) across desktop and mobile.
+- **My profile**: `/profile` centralises avatar uploads (stored on Vercel Blob), display name updates, and timezone preferences with toast confirmations.
+- **Navigation shell**: A collapsible sidebar with icon tooltips anchors Dashboard, Trends, Keywords, and (for admins) the Crawler, while the topbar mirrors the branding width, keeps space for future global search, and surfaces the avatar-powered user menu.
 
 All pages are responsive, accessible, and support dark mode via the header toggle. APIs respond from the Edge runtime and return JSON objects (for example `{ products: [...], total: 123 }` for the dashboard feed); on internal errors the response body contains an empty dataset with an `x-error` header. The products feed also stamps the caller's plan tier into an `x-plan-tier` header and back-fills missing BSR values from recent trend metrics so pagination and sorting stay stable even when the live row lacks a rank.
 

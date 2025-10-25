@@ -601,6 +601,9 @@ export type Database = {
       };
       users_profile: {
         Row: {
+          avatar_url: string | null;
+          display_name: string | null;
+          timezone: string;
           user_id: string;
           plan_tier: string;
           plan_status: string;
@@ -612,6 +615,9 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          avatar_url?: string | null;
+          display_name?: string | null;
+          timezone?: string;
           user_id: string;
           plan_tier?: string;
           plan_status?: string;
@@ -623,6 +629,9 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          avatar_url?: string | null;
+          display_name?: string | null;
+          timezone?: string;
           user_id?: string;
           plan_tier?: string;
           plan_status?: string;
