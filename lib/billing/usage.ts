@@ -8,6 +8,7 @@ export interface EnforceUsageInput {
   planTier: PlanTier;
   metric: UsageMetric;
   delta?: number;
+  isAdmin?: boolean;
 }
 
 export interface UsageResult {
@@ -22,8 +23,18 @@ export async function enforceDailyUsage({
   userId,
   planTier,
   metric,
-  delta = 1
+  delta = 1,
+  isAdmin = false
 }: EnforceUsageInput): Promise<UsageResult> {
+  if (isAdmin) {
+    return {
+      allowed: true,
+      used: 0,
+      limit: Number.MAX_SAFE_INTEGER,
+      remaining: Number.MAX_SAFE_INTEGER
+    };
+  }
+
   const limit = getUsageLimit(planTier, metric);
   if (limit == null) {
     return { allowed: true, used: 0, limit: Number.MAX_SAFE_INTEGER, remaining: Number.MAX_SAFE_INTEGER };

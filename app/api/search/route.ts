@@ -36,7 +36,8 @@ export async function GET(request: NextRequest) {
     client: typedSupabase,
     userId: user.id,
     planTier: entitlements.planTier,
-    metric: USAGE_METRICS.keywordSearch
+    metric: USAGE_METRICS.keywordSearch,
+    isAdmin: entitlements.isAdmin
   });
 
   if (!usage.allowed) {

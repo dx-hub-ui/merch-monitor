@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { PLAN_LIMITS, USAGE_METRICS, getUsageLimit } from "@/lib/billing/plans";
+import { ADMIN_PLAN_LIMITS, PLAN_LIMITS, USAGE_METRICS, getUsageLimit } from "@/lib/billing/plans";
 import { extractEntitlements } from "@/lib/billing/claims";
 import { enforceDailyUsage } from "@/lib/billing/usage";
 import type { Database } from "@/lib/supabase/types";
@@ -44,6 +44,13 @@ describe("entitlement extraction", () => {
     expect(entitlements.seats).toBe(3);
     expect(entitlements.trialActive).toBe(true);
   });
+
+  it("removes limits for admin users", () => {
+    const entitlements = extractEntitlements(fakeUser({ is_admin: true }), undefined);
+    expect(entitlements.isAdmin).toBe(true);
+    expect(entitlements.limits.keywordSearchesDaily).toBe(ADMIN_PLAN_LIMITS.keywordSearchesDaily);
+    expect(entitlements.limits.exports).toBe(true);
+  });
 });
 
 describe("usage enforcement", () => {
@@ -83,5 +90,20 @@ describe("usage enforcement", () => {
     });
     expect(result.allowed).toBe(false);
     expect(result.remaining).toBe(0);
+  });
+
+  it("skips usage enforcement for admins", async () => {
+    const rpc = vi.fn();
+    const client = { rpc } as unknown as SupabaseClient<Database>;
+    const result = await enforceDailyUsage({
+      client,
+      userId: "admin-1",
+      planTier: "basic",
+      metric: USAGE_METRICS.keywordSearch,
+      isAdmin: true
+    });
+    expect(result.allowed).toBe(true);
+    expect(result.limit).toBe(Number.MAX_SAFE_INTEGER);
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

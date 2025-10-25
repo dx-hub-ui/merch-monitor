@@ -39,6 +39,18 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
   }
 };
 
+export const ADMIN_PLAN_LIMITS: PlanLimits = {
+  keywordSearchesDaily: Number.MAX_SAFE_INTEGER,
+  savedListsMax: Number.MAX_SAFE_INTEGER,
+  historyDays: Number.MAX_SAFE_INTEGER,
+  serpDepth: Number.MAX_SAFE_INTEGER,
+  momentumWindows: [...PLAN_LIMITS.pro.momentumWindows],
+  refreshIntervalHours: 1,
+  exports: true,
+  alerts: true,
+  apiAccess: true
+};
+
 export const PLAN_PRICES: Record<PlanTier, number> = {
   basic: 700,
   pro: 2999
@@ -101,6 +113,7 @@ export interface Entitlements {
   trialActive: boolean;
   seats: number;
   limits: PlanLimits;
+  isAdmin: boolean;
 }
 
 export function buildEntitlements(params: {
@@ -108,14 +121,16 @@ export function buildEntitlements(params: {
   planStatus: PlanStatus;
   trialEndsAt: string | null;
   seats: number;
+  isAdmin?: boolean;
 }): Entitlements {
-  const { planTier, planStatus, trialEndsAt, seats } = params;
-  const limits = PLAN_LIMITS[planTier];
+  const { planTier, planStatus, trialEndsAt, seats, isAdmin = false } = params;
+  const limits = isAdmin ? ADMIN_PLAN_LIMITS : PLAN_LIMITS[planTier];
   return {
     planTier,
     planStatus,
     trialActive: Boolean(trialEndsAt && new Date(trialEndsAt).getTime() > Date.now()),
     seats: Math.max(seats, 1),
-    limits
+    limits,
+    isAdmin
   };
 }

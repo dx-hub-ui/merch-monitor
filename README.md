@@ -176,6 +176,8 @@ where email = 'founder@example.com';
 
 Once the new JWT propagates, the crawler settings form unlocks editing controls and the header shows the “Crawler” navigation item.
 
+Administrators also bypass all plan usage limits. Admin requests skip keyword quotas, saved list caps, historical lookback restrictions, and other plan-based feature toggles so internal teams can diagnose issues without upgrading their subscription metadata first.
+
 ## Visual design
 
 The application adopts a violet-forward palette inspired by the shared concept art: a deep indigo to electric purple gradient envelopes each page, while surface elements float on soft, blurred glass panels. Interactive accents use the updated `brand` Tailwind color tokens (`brand.light`, `brand`, `brand.dark`, `brand.deeper`) so buttons, focus states, and charts inherit the new scheme automatically in both light and dark themes.
