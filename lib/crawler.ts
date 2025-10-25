@@ -137,7 +137,14 @@ function normaliseMoneyInput(txt: string) {
       normalised = stripped.replace(/,/g, "");
     }
   } else if (hasComma) {
-    normalised = stripped.replace(/,/g, ".");
+    const commaCount = stripped.split(",").length - 1;
+    const lastGroupLength = stripped.split(",").pop()?.length ?? 0;
+    const shouldTreatAsDecimal =
+      commaCount === 1 && lastGroupLength > 0 && lastGroupLength <= 2;
+
+    normalised = shouldTreatAsDecimal
+      ? stripped.replace(/,/g, ".")
+      : stripped.replace(/,/g, "");
   } else {
     normalised = stripped.replace(/,/g, "");
   }
