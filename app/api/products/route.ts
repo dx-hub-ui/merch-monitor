@@ -99,7 +99,17 @@ export async function GET(req: NextRequest) {
     const response = NextResponse.json(body, { status: 200 });
     response.headers.set("x-plan-tier", entitlements.planTier);
     return response;
-  };
+  }
+
+  if (error) {
+    const res = respond({ products: [], total: 0 });
+    res.headers.set("x-error", error.message);
+    return res;
+  }
+
+  const products = (data ?? []) as ProductRow[];
+  const totalCount =
+    count ?? (products.length < limit ? Math.max(offset + products.length, 0) : offset + products.length + 1);
 
   if (error) {
     const res = respond({ products: [], total: 0 });
