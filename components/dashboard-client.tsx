@@ -51,6 +51,7 @@ export function DashboardClient() {
   const [withImages, setWithImages] = useState(false);
   const [productType, setProductType] = useState<string>("all");
   const [bsrRange, setBsrRange] = useState<[number, number]>(BSR_DEFAULT_RANGE);
+  const [bsrMin, bsrMax] = bsrRange;
   const [page, setPage] = useState(1);
   const [viewMode, setViewMode] = useState<"table" | "grid">(() => {
     if (typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches) {
@@ -71,14 +72,13 @@ export function DashboardClient() {
     if (productType !== "all") {
       params.set("type", productType);
     }
-    const isDefaultRange =
-      bsrRange[0] === BSR_DEFAULT_RANGE[0] && bsrRange[1] === BSR_DEFAULT_RANGE[1];
+    const isDefaultRange = bsrMin === BSR_DEFAULT_RANGE[0] && bsrMax === BSR_DEFAULT_RANGE[1];
     if (!isDefaultRange) {
-      params.set("bsrMin", String(bsrRange[0]));
-      params.set("bsrMax", String(bsrRange[1]));
+      params.set("bsrMin", String(bsrMin));
+      params.set("bsrMax", String(bsrMax));
     }
     return `/api/products?${params.toString()}`;
-  }, [search, sort, direction, withImages, productType, bsrRange, page]);
+  }, [search, sort, direction, withImages, productType, bsrMin, bsrMax, page]);
 
   const { data, isLoading, isValidating } = useSWR<ApiResponse>(requestUrl, fetcher, {
     keepPreviousData: true,
@@ -87,7 +87,7 @@ export function DashboardClient() {
 
   useEffect(() => {
     setPage(current => (current === 1 ? current : 1));
-  }, [search, sort, direction, withImages, productType, bsrRange[0], bsrRange[1]]);
+  }, [search, sort, direction, withImages, productType, bsrMin, bsrMax]);
 
   const products = useMemo(() => data?.products ?? [], [data]);
   const totalFromServer = data?.total ?? 0;
