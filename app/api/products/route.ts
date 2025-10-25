@@ -76,12 +76,6 @@ export async function GET(req: NextRequest) {
 
   const { data, error, count } = await query;
 
-  if (error) {
-    const res = NextResponse.json({ products: [], total: 0 }, { status: 200 });
-    res.headers.set("x-error", error.message);
-    return res;
-  }
-
   type ProductRow = Pick<
     Database["public"]["Tables"]["merch_products"]["Row"],
     | "asin"
@@ -101,15 +95,21 @@ export async function GET(req: NextRequest) {
     | "last_seen"
   >;
 
-  const products = (data ?? []) as ProductRow[];
-  const total =
-    count ?? (products.length < limit ? Math.max(offset + products.length, 0) : offset + products.length + 1);
-
   const respond = (body: { products: ProductRow[]; total: number }) => {
     const response = NextResponse.json(body, { status: 200 });
     response.headers.set("x-plan-tier", entitlements.planTier);
     return response;
   };
+
+  if (error) {
+    const res = respond({ products: [], total: 0 });
+    res.headers.set("x-error", error.message);
+    return res;
+  }
+
+  const products = (data ?? []) as ProductRow[];
+  const total =
+    count ?? (products.length < limit ? Math.max(offset + products.length, 0) : offset + products.length + 1);
 
   const missingBsrAsins = products.filter(product => product.bsr == null).map(product => product.asin);
 
@@ -136,7 +136,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const response = NextResponse.json(resolvedProducts, { status: 200 });
-  response.headers.set("x-plan-tier", entitlements.planTier);
-  return response;
+  return respond({ products: resolvedProducts, total });
 }
