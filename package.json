@@ -14,6 +14,8 @@
     "crawl": "tsx crawler/run.ts",
     "embed": "tsx scripts/embed.ts",
     "metrics": "tsx scripts/metrics.ts",
+    "jobs": "tsx scripts/run-jobs.ts",
+    "jobs:dry-run": "tsx scripts/run-jobs.ts --dry-run",
     "keywords:suggest": "tsx scripts/suggest.ts",
     "keywords:serp": "tsx scripts/serp.ts",
     "keywords:embed": "tsx scripts/embed_keywords.ts",

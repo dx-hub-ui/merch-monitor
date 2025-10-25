@@ -85,6 +85,8 @@ npm run start      # Start compiled app
 npm run crawl      # Playwright crawler inserting/updating merch_products
 npm run embed      # Generate OpenAI embeddings for new/changed products
 npm run metrics    # Compute momentum metrics from history snapshots
+npm run jobs       # Run crawl → embed → metrics sequentially (self-hosted cron helper)
+npm run jobs:dry-run # Print the job plan without executing scripts
 npm run keywords:suggest # Amazon autocomplete harvesting pipeline
 npm run keywords:serp    # SERP crawler for queued keyword jobs
 npm run keywords:embed   # Generate embeddings for keyword terms
@@ -99,6 +101,25 @@ npm run test:e2e   # Playwright UI smoke tests (requires running dev server)
 - TypeScript project references now include the `components/` directory so ESLint and type-checking catch issues in shared UI components during `next lint` and `next build`.
 - Avatar previews and profile photos use `next/image` to satisfy Next.js lint rules and ensure client previews (including `blob:` URLs) stay optimised. Reuse the existing utilities when adding new avatar surfaces.
 - The E2E auth bypass path seeds a fully shaped Supabase user stub so `next build` type-checks succeed without requiring network calls to Supabase during automated runs.
+
+### Self-hosted scheduling
+
+GitHub Actions runs (`crawl.yml`) can be blocked when an account exhausts its
+included minutes or the organisation has a failed payment. Deployments that hit
+those limits should fall back to a self-hosted scheduler:
+
+1. Provision a small worker (or reuse an existing box) with Node.js 20 and the
+   repository checked out.
+2. Ensure the `.env` file contains the same credentials used in CI (database
+   URL, OpenAI key, etc.).
+3. Run `npm run jobs` from cron or a process manager. The helper wraps the
+   crawler, embedding generator, and metrics scripts so a single invocation
+   mirrors the Actions workflow. Use `npm run jobs -- --only=crawl` to target
+   specific steps or `npm run jobs:dry-run` to confirm configuration without
+   executing any network calls.
+
+The job runner validates required environment variables up-front so failures
+surface immediately instead of mid-crawl.
 
 ### Crawling
 

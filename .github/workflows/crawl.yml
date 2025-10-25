@@ -44,9 +44,5 @@ jobs:
         run: |
           echo "USE_SEARCH=false" >> "$GITHUB_ENV"
           echo "CRAWLER_RUN_MODE=backlog-touch" >> "$GITHUB_ENV"
-      - name: Crawl merch listings
-        run: npm run crawl
-      - name: Generate embeddings
-        run: npm run embed
-      - name: Compute trend metrics
-        run: npm run metrics
+      - name: Run crawler, embedding, and metrics jobs
+        run: npm run jobs
