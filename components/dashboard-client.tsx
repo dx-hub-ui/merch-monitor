@@ -60,6 +60,7 @@ export function DashboardClient() {
   });
 
   const requestUrl = useMemo(() => {
+    const [bsrMin, bsrMax] = bsrRange;
     const params = new URLSearchParams({
       q: search,
       sort,
@@ -71,11 +72,10 @@ export function DashboardClient() {
     if (productType !== "all") {
       params.set("type", productType);
     }
-    const isDefaultRange =
-      bsrRange[0] === BSR_DEFAULT_RANGE[0] && bsrRange[1] === BSR_DEFAULT_RANGE[1];
+    const isDefaultRange = bsrMin === BSR_DEFAULT_RANGE[0] && bsrMax === BSR_DEFAULT_RANGE[1];
     if (!isDefaultRange) {
-      params.set("bsrMin", String(bsrRange[0]));
-      params.set("bsrMax", String(bsrRange[1]));
+      params.set("bsrMin", String(bsrMin));
+      params.set("bsrMax", String(bsrMax));
     }
     return `/api/products?${params.toString()}`;
   }, [search, sort, direction, withImages, productType, bsrRange, page]);
@@ -87,7 +87,7 @@ export function DashboardClient() {
 
   useEffect(() => {
     setPage(current => (current === 1 ? current : 1));
-  }, [search, sort, direction, withImages, productType, bsrRange[0], bsrRange[1]]);
+  }, [search, sort, direction, withImages, productType, bsrRange]);
 
   const products = useMemo(() => data?.products ?? [], [data]);
   const totalFromServer = data?.total ?? 0;
