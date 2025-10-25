@@ -69,9 +69,18 @@ export async function GET() {
 
   const usage = Object.entries(USAGE_METRICS).reduce(
     (acc, [, metric]) => {
+      const row = usageMap.get(metric);
+      if (entitlements.isAdmin) {
+        acc[metric] = {
+          used: row?.used ?? 0,
+          limit: Number.MAX_SAFE_INTEGER,
+          remaining: Number.MAX_SAFE_INTEGER
+        };
+        return acc;
+      }
+
       const limits = DAILY_USAGE_LIMITS[entitlements.planTier];
       const defaultLimit = limits?.[metric as UsageMetric] ?? 0;
-      const row = usageMap.get(metric);
       acc[metric] = {
         used: row?.used ?? 0,
         limit: row?.limit ?? defaultLimit,

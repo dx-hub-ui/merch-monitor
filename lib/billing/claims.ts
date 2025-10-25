@@ -1,4 +1,5 @@
 import type { User } from "@supabase/supabase-js";
+import { isAdminUser } from "@/lib/auth/roles";
 import { PLAN_LIMITS, type Entitlements, type PlanStatus, type PlanTier, buildEntitlements } from "./plans";
 
 interface PlanClaims {
@@ -32,11 +33,12 @@ export function extractEntitlements(user: User | null, profile?: {
   seats?: number | null;
 }): Entitlements {
   const claims: PlanClaims = (user?.app_metadata as PlanClaims) ?? {};
+  const isAdmin = isAdminUser(user);
   const planTier = normalisePlanTier(profile?.plan_tier ?? claims.plan_tier);
   const planStatus = normalisePlanStatus(profile?.plan_status ?? claims.plan_status);
   const seats = profile?.seats ?? claims.seats ?? 1;
   const trialEndsAt = profile?.trial_ends_at ?? ("trial_ends_at" in claims ? claims.trial_ends_at ?? null : null);
-  return buildEntitlements({ planTier, planStatus, trialEndsAt, seats });
+  return buildEntitlements({ planTier, planStatus, trialEndsAt, seats, isAdmin });
 }
 
 export { PLAN_LIMITS };

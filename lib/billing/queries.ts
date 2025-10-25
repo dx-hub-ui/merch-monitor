@@ -83,8 +83,17 @@ export async function getBillingSummary(): Promise<BillingSummary> {
 
   const usage = Object.entries(USAGE_METRICS).reduce(
     (acc, [, metric]) => {
-      const defaultLimit = DAILY_USAGE_LIMITS[entitlements.planTier]?.[metric as UsageMetric] ?? 0;
       const row = usageMap.get(metric);
+      if (entitlements.isAdmin) {
+        acc[metric] = {
+          used: row?.used ?? 0,
+          limit: Number.MAX_SAFE_INTEGER,
+          remaining: Number.MAX_SAFE_INTEGER
+        };
+        return acc;
+      }
+
+      const defaultLimit = DAILY_USAGE_LIMITS[entitlements.planTier]?.[metric as UsageMetric] ?? 0;
       acc[metric] = {
         used: row?.used ?? 0,
         limit: row?.limit ?? defaultLimit,
