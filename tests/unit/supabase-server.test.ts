@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { decodeSupabaseCookieValue } from "@/lib/supabase/cookies";
+import {
+  decodeSupabaseCookieValue,
+  normalizeSupabaseCookies,
+  type NormalizableCookieStore
+} from "@/lib/supabase/cookies";
 import { isReadonlyCookieMutationError } from "@/lib/supabase/server";
 
 describe("decodeSupabaseCookieValue", () => {
@@ -29,6 +33,34 @@ describe("decodeSupabaseCookieValue", () => {
 
   it("falls back to the original value when decoding fails", () => {
     expect(decodeSupabaseCookieValue("base64-not-really")).toBe("base64-not-really");
+  });
+
+  it("normalizes Supabase cookies in a store", () => {
+    const session = JSON.stringify({ exp: 123 });
+    const encoded = `base64-${Buffer.from(session).toString("base64")}`;
+    const store: Array<{ name: string; value: string }> = [
+      { name: "sb-access-token", value: encoded },
+      { name: "non-sb", value: "keep" }
+    ];
+
+    const cookieStore: NormalizableCookieStore = {
+      getAll() {
+        return store.map((cookie) => ({ ...cookie }));
+      },
+      set(nameOrCookie, maybeValue) {
+        const name = typeof nameOrCookie === "string" ? nameOrCookie : nameOrCookie.name;
+        const value = typeof nameOrCookie === "string" ? (maybeValue as string) : nameOrCookie.value;
+        const existing = store.find((cookie) => cookie.name === name);
+        if (existing) {
+          existing.value = value;
+        }
+      }
+    };
+
+    normalizeSupabaseCookies(cookieStore);
+
+    expect(store.find((cookie) => cookie.name === "sb-access-token")?.value).toBe(session);
+    expect(store.find((cookie) => cookie.name === "non-sb")?.value).toBe("keep");
   });
 });
 

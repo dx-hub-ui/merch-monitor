@@ -2,30 +2,15 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs";
 import { AuthSessionMissingError } from "@supabase/auth-js";
 import type { Database } from "@/lib/supabase/types";
-import { decodeSupabaseCookieValue } from "@/lib/supabase/cookies";
+import { normalizeSupabaseCookies } from "@/lib/supabase/cookies";
 
 const AUTH_PATHS = new Set(["/login", "/signup"]);
-const SUPABASE_COOKIE_NAME_PREFIX = "sb-";
-
-function normalizeSupabaseCookies(request: NextRequest) {
-  for (const cookie of request.cookies.getAll()) {
-    if (!cookie.name.startsWith(SUPABASE_COOKIE_NAME_PREFIX)) {
-      continue;
-    }
-
-    const decoded = decodeSupabaseCookieValue(cookie.value);
-    if (decoded !== cookie.value) {
-      request.cookies.set(cookie.name, decoded);
-    }
-  }
-}
-
 export async function middleware(request: NextRequest) {
   if (process.env.E2E_BYPASS_AUTH === "true") {
     return NextResponse.next();
   }
 
-  normalizeSupabaseCookies(request);
+  normalizeSupabaseCookies(request.cookies);
 
   let response = NextResponse.next();
   const supabase = createMiddlewareClient<Database>({ req: request, res: response });
