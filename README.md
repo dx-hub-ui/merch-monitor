@@ -120,7 +120,7 @@ Every keyword exploration request (`POST /api/keywords/explore`) normalises inpu
 - **Account**: Change password and sign out.
 - **Header navigation**: Persistent links to Dashboard, Trends, and the Keywords intelligence suite (plus the admin Crawler when applicable) across desktop and mobile.
 
-All pages are responsive, accessible, and support dark mode via the header toggle. APIs respond from the Edge runtime and return JSON objects (for example `{ products: [...], total: 123 }` for the dashboard feed); on internal errors the response body contains an empty dataset with an `x-error` header.
+All pages are responsive, accessible, and support dark mode via the header toggle. APIs respond from the Edge runtime and return JSON objects (for example `{ products: [...], total: 123 }` for the dashboard feed); on internal errors the response body contains an empty dataset with an `x-error` header. The products feed also stamps the caller's plan tier into an `x-plan-tier` header and back-fills missing BSR values from recent trend metrics so pagination and sorting stay stable even when the live row lacks a rank.
 
 ### Mobile experience
 
