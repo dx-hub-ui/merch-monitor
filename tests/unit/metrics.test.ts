@@ -11,6 +11,10 @@ describe("momentum", () => {
   it("normalizes review growth", () => {
     expect(normalizeReviewGrowth(100, 120)).toBeCloseTo(0.167, 3);
     expect(normalizeReviewGrowth(200, 180)).toBe(0);
+    expect(normalizeReviewGrowth(0, 2500)).toBe(1);
+    expect(normalizeReviewGrowth(50, 50)).toBe(0);
+    expect(normalizeReviewGrowth(50, 40)).toBe(0);
+    expect(normalizeReviewGrowth(50, 0)).toBe(0);
   });
 
   it("computes weighted momentum score", () => {
