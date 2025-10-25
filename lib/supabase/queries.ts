@@ -90,6 +90,21 @@ export async function requireSession() {
   return session;
 }
 
+export type UserProfile = Database["public"]["Tables"]["users_profile"]["Row"];
+
+export async function getUserProfile(
+  userId: Database["public"]["Tables"]["users_profile"]["Row"]["user_id"]
+) {
+  const supabase = createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from("users_profile")
+    .select("*")
+    .eq("user_id", userId)
+    .maybeSingle<UserProfile>();
+  if (error) throw error;
+  return data ?? null;
+}
+
 export async function fetchProducts(params: {
   search?: string;
   sort?: "bsr" | "reviews" | "rating" | "last_seen";

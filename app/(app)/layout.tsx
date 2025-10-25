@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { AppHeader } from "@/components/app-header";
-import { getSession } from "@/lib/supabase/queries";
+import { AppShell } from "@/components/app-shell";
+import { getSession, getUserProfile } from "@/lib/supabase/queries";
 import { isAdminSession } from "@/lib/auth/roles";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -9,12 +9,40 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect("/login");
   }
 
+  let profile: Awaited<ReturnType<typeof getUserProfile>> = null;
+  try {
+    profile = await getUserProfile(session.user.id as Parameters<typeof getUserProfile>[0]);
+  } catch (error) {
+    console.error("Failed to load user profile for layout", error);
+  }
   const isAdmin = isAdminSession(session);
 
+  const displayName =
+    profile?.display_name ??
+    (typeof session.user.user_metadata?.full_name === "string"
+      ? session.user.user_metadata.full_name
+      : typeof session.user.user_metadata?.name === "string"
+        ? session.user.user_metadata.name
+        : session.user.email ?? null);
+
+  const avatarUrl =
+    profile?.avatar_url ??
+    (typeof session.user.user_metadata?.avatar_url === "string"
+      ? session.user.user_metadata.avatar_url
+      : typeof session.user.user_metadata?.avatar === "string"
+        ? session.user.user_metadata.avatar
+        : null);
+
   return (
-    <div className="flex min-h-screen flex-col bg-white/75 shadow-[0_20px_60px_rgba(46,16,101,0.15)] backdrop-blur supports-[backdrop-filter]:bg-white/65 dark:bg-slate-950/80 dark:shadow-[0_20px_60px_rgba(12,5,33,0.45)]">
-      <AppHeader email={session.user.email ?? null} isAdmin={isAdmin} />
-      <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4 py-6">{children}</main>
-    </div>
+    <AppShell
+      email={session.user.email ?? null}
+      isAdmin={isAdmin}
+      profile={{
+        displayName,
+        avatarUrl
+      }}
+    >
+      {children}
+    </AppShell>
   );
 }
