@@ -284,8 +284,8 @@ function shouldProcess(item: QueueItem, now: Date) {
     })
   );
 
-  const now = new Date();
-  const { queue: initialQueue, counts: discoveryCounts } = selectQueue(now, discovery, stateMap);
+  const runStart = new Date();
+  const { queue: initialQueue, counts: discoveryCounts } = selectQueue(runStart, discovery, stateMap);
   const recrawlWindows = computeRecrawlWindows(effectiveSettings);
   const { perPriority: budgets, variant: variantBudget } = computeBudgets(
     effectiveSettings.max_items_per_run
@@ -308,9 +308,10 @@ function shouldProcess(item: QueueItem, now: Date) {
 
   while (queue.length && processed < effectiveSettings.max_items_per_run) {
     const candidate = queue.shift()!;
+    const iterationNow = new Date();
     enqueued.delete(candidate.asin);
     if (seen.has(candidate.asin)) continue;
-    if (!shouldProcess(candidate, now)) continue;
+    if (!shouldProcess(candidate, iterationNow)) continue;
     const isVariant = candidate.source === "variant";
     const priorityLimitReached = processedCounts[candidate.priority] >= budgets[candidate.priority];
     if (!isVariant && priorityLimitReached) continue;
@@ -331,7 +332,9 @@ function shouldProcess(item: QueueItem, now: Date) {
       console.warn(`Failed to process ${candidate.url}`, error);
       const existing = stateMap.get(candidate.asin) ?? null;
       const backoff = existing ? Math.min(existing.unchanged_runs + 1, 3) : 1;
-      const nextDue = new Date(now.getTime() + recrawlWindows[candidate.priority] * backoff);
+      const nextDue = new Date(
+        iterationNow.getTime() + recrawlWindows[candidate.priority] * backoff
+      );
       const update: CrawlStateUpdate = {
         asin: candidate.asin,
         priority: existing?.priority ?? candidate.priority,
@@ -365,13 +368,15 @@ function shouldProcess(item: QueueItem, now: Date) {
     const fingerprint = fingerprintProduct(parsed.product);
     const existingState = stateMap.get(candidate.asin) ?? null;
     const freshnessHours = existingState?.last_seen_at
-      ? (now.getTime() - existingState.last_seen_at.getTime()) / (60 * 60 * 1000)
+      ? (iterationNow.getTime() - existingState.last_seen_at.getTime()) / (60 * 60 * 1000)
       : null;
 
     if (!parsed.product) {
       skippedNonMerch += 1;
       const failCount = (existingState?.fail_count ?? 0) + 1;
-      const nextDue = new Date(now.getTime() + recrawlWindows.P3 * Math.min(failCount, 3));
+      const nextDue = new Date(
+        iterationNow.getTime() + recrawlWindows.P3 * Math.min(failCount, 3)
+      );
       const update: CrawlStateUpdate = {
         asin: candidate.asin,
         priority: "P3",
@@ -428,7 +433,9 @@ function shouldProcess(item: QueueItem, now: Date) {
 
     const unchangedRuns = fingerprint && fingerprint === existingState?.last_hash ? (existingState?.unchanged_runs ?? 0) + 1 : 0;
     const backoffMultiplier = Math.min(4, Math.pow(2, unchangedRuns));
-    const nextDue = new Date(now.getTime() + recrawlWindows[candidate.priority] * backoffMultiplier);
+    const nextDue = new Date(
+      iterationNow.getTime() + recrawlWindows[candidate.priority] * backoffMultiplier
+    );
     const update: CrawlStateUpdate = {
       asin: parsed.product.asin,
       priority: candidate.priority,
@@ -438,7 +445,7 @@ function shouldProcess(item: QueueItem, now: Date) {
       fail_count: 0,
       inactive: false,
       discovery: candidate.source,
-      last_seen_at: now
+      last_seen_at: iterationNow
     };
     await persistCrawlState(pg, update);
     stateMap.set(parsed.product.asin, {
@@ -457,17 +464,18 @@ function shouldProcess(item: QueueItem, now: Date) {
       const canonical = `${CANONICAL_BASE}${variant}`;
       if (seen.has(variant)) continue;
       if (enqueued.has(variant)) continue;
-      await persistVariantCandidate(pg, variant, stateMap, now);
+      await persistVariantCandidate(pg, variant, stateMap, iterationNow);
       enqueued.add(variant);
+      const variantState = stateMap.get(variant) ?? null;
       queue.push({
         asin: variant,
         url: canonical,
         priority: "P3",
         source: "variant",
         page: 0,
-        nextDue: now,
-        stateNextDue: now,
-        state: stateMap.get(variant) ?? null
+        nextDue: iterationNow,
+        stateNextDue: variantState?.next_due ?? iterationNow,
+        state: variantState
       });
     }
 
