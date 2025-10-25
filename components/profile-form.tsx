@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import clsx from "clsx";
@@ -91,9 +92,16 @@ export function ProfileForm({ displayName, timezone, avatarUrl }: ProfileFormPro
       <input type="hidden" name="existingAvatar" value={storedAvatar ?? ""} />
       <div className="flex items-start gap-6">
         <div>
-          <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <div className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
             {preview ? (
-              <img src={preview} alt="Current avatar" className="h-full w-full object-cover" />
+              <Image
+                src={preview}
+                alt="Current avatar"
+                fill
+                sizes="96px"
+                className="object-cover"
+                unoptimized={preview.startsWith("blob:")}
+              />
             ) : (
               <span className="text-sm font-semibold uppercase text-slate-500 dark:text-slate-400">No avatar</span>
             )}

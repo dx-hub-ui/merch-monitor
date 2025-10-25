@@ -82,6 +82,11 @@ npm run test       # Run Vitest unit & integration suites
 npm run test:e2e   # Playwright UI smoke tests (requires running dev server)
 ```
 
+## Development notes
+
+- TypeScript project references now include the `components/` directory so ESLint and type-checking catch issues in shared UI components during `next lint` and `next build`.
+- Avatar previews and profile photos use `next/image` to satisfy Next.js lint rules and ensure client previews (including `blob:` URLs) stay optimised. Reuse the existing utilities when adding new avatar surfaces.
+
 ### Crawling
 
 The crawler now combines admin-configured discovery rules, per-key environment overrides, and strict post-filtering to keep the dataset fail-closed:

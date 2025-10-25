@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import {
   useEffect,
@@ -163,26 +164,36 @@ type AvatarProps = {
 };
 
 function Avatar({ src, alt, fallback, size = "sm" }: AvatarProps) {
-  const dimension = size === "lg" ? "h-12 w-12" : "h-8 w-8";
+  const dimensionClass = size === "lg" ? "h-12 w-12" : "h-8 w-8";
+  const dimensionPx = size === "lg" ? 48 : 32;
   const cleanedSrc = typeof src === "string" && src.trim().length > 0 ? src : null;
+
   if (cleanedSrc) {
     return (
-      <img
-        src={cleanedSrc}
-        alt={alt}
+      <div
         className={clsx(
-          dimension,
-          "flex-shrink-0 rounded-full border border-slate-200 object-cover dark:border-slate-700"
+          "relative flex-shrink-0 overflow-hidden rounded-full border border-slate-200 dark:border-slate-700",
+          dimensionClass
         )}
-      />
+      >
+        <Image
+          src={cleanedSrc}
+          alt={alt}
+          fill
+          sizes={`${dimensionPx}px`}
+          className="object-cover"
+          unoptimized={cleanedSrc.startsWith("blob:")}
+        />
+      </div>
     );
   }
+
   return (
     <div
       aria-hidden="true"
       className={clsx(
-        dimension,
-        "flex-shrink-0 rounded-full border border-slate-200 bg-slate-200 text-sm font-semibold uppercase text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+        "flex-shrink-0 rounded-full border border-slate-200 bg-slate-200 text-sm font-semibold uppercase text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200",
+        dimensionClass
       )}
     >
       <span className="flex h-full w-full items-center justify-center">{fallback || alt[0]?.toUpperCase() || "U"}</span>
