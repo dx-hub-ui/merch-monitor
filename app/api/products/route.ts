@@ -74,6 +74,8 @@ export async function GET(req: NextRequest) {
   else if (sort === "last_seen") query = query.order("last_seen", { ascending: direction });
   else query = query.order("bsr", { ascending: direction, nullsFirst: false });
 
+  const { data, error, count } = await query;
+
   type ProductRow = Pick<
     Database["public"]["Tables"]["merch_products"]["Row"],
     | "asin"
@@ -93,26 +95,30 @@ export async function GET(req: NextRequest) {
     | "last_seen"
   >;
 
-  const { data, error, count } = await query;
-
-  function respond(
-    body: { products: ProductRow[]; total: number },
-    init: Parameters<typeof NextResponse.json>[1] = { status: 200 }
-  ) {
-    const response = NextResponse.json(body, init);
-    response.headers.set("x-plan-tier", entitlements.planTier);
-    return response;
-  }
-
   if (error) {
-    const res = respond({ products: [], total: 0 });
+    const res = NextResponse.json({ products: [], total: 0 }, { status: 200 });
     res.headers.set("x-error", error.message);
+    res.headers.set("x-plan-tier", entitlements.planTier);
+    res.headers.set("x-total-count", "0");
     return res;
   }
 
   const products = (data ?? []) as ProductRow[];
-  const totalCount =
+  const total =
     count ?? (products.length < limit ? Math.max(offset + products.length, 0) : offset + products.length + 1);
+
+  const respond = (items: ProductRow[]) => {
+    const response = NextResponse.json(
+      {
+        products: items,
+        total
+      },
+      { status: 200 }
+    );
+    response.headers.set("x-plan-tier", entitlements.planTier);
+    response.headers.set("x-total-count", total.toString());
+    return response;
+  };
 
   const missingBsrAsins = products.filter(product => product.bsr == null).map(product => product.asin);
 
@@ -139,5 +145,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return respond({ products: resolvedProducts, total: totalCount });
+  return respond(resolvedProducts);
 }

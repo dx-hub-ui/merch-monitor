@@ -108,6 +108,23 @@ The crawler now combines admin-configured discovery rules, per-key environment o
 
 Every keyword exploration request (`POST /api/keywords/explore`) normalises input, merges autocomplete/semantic neighbours, classifies intent, enqueues SERP jobs for stale terms, and caches the response for ten minutes. Companion endpoints expose related terms, top opportunities, and SERP snapshots for dashboard pages.
 
+### Running keyword scripts in GitHub Actions
+
+The `Run keyword maintenance scripts` GitHub Actions workflow (`.github/workflows/run-keyword-scripts.yml`) makes it possible to execute `npm run keywords:serp` and the other maintenance scripts without shell access to the Supabase backend. Supply the scripts as a comma- or newline-delimited list (for example `keywords:serp, metrics`) and they will run sequentially in the same job. Configure the following repository secrets so the workflow can authenticate:
+
+- `SUPABASE_DB_URL` – Postgres connection string with read/write access.
+- `NEXT_PUBLIC_SUPABASE_URL` – Supabase project URL used by service role clients.
+- `SUPABASE_SERVICE_ROLE_KEY` – Service role key for Supabase RPCs.
+- `OPENAI_API_KEY` – Required when running embedding scripts.
+
+Once the secrets are in place you can:
+
+1. Navigate to **Actions → Run keyword maintenance scripts** and trigger a manual run via **Run workflow**. Enter the scripts you want to run as a comma- or newline-separated list (for example `keywords:serp, metrics`) or accept the default `keywords:serp` run.
+2. Allow the default cron schedule (`0 6 * * *`) to run nightly. Edit the `schedule` block in the workflow file if you need a different cadence or want to disable the timer.
+3. Override the Node.js version when dispatching manually by filling in the optional `node-version` field.
+
+The workflow installs dependencies with `npm ci`, provisions Playwright browsers automatically when a SERP crawl is requested, and iterates through the requested scripts in order while grouping logs for each invocation in the Actions UI.
+
 ## UI overview
 
 - **Auth**: Email/password sign in & sign up. (CI/E2E can set `E2E_BYPASS_AUTH=true` to inject an admin session.)
@@ -120,7 +137,7 @@ Every keyword exploration request (`POST /api/keywords/explore`) normalises inpu
 - **Account**: Change password and sign out.
 - **Header navigation**: Persistent links to Dashboard, Trends, and the Keywords intelligence suite (plus the admin Crawler when applicable) across desktop and mobile.
 
-All pages are responsive, accessible, and support dark mode via the header toggle. APIs respond from the Edge runtime and return JSON objects (for example `{ products: [...], total: 123 }` for the dashboard feed); on internal errors the response body contains an empty dataset with an `x-error` header. The products feed also stamps the caller's plan tier into an `x-plan-tier` header and back-fills missing BSR values from recent trend metrics so pagination and sorting stay stable even when the live row lacks a rank.
+All pages are responsive, accessible, and support dark mode via the header toggle. APIs respond from the Edge runtime; `/api/products` continues to return a JSON array of products but now includes pagination details in the `x-total-count` response header alongside the existing `x-plan-tier` entitlement header. On internal errors the handler falls back to an empty payload, annotates the response with `x-error`, and emits `x-total-count: 0` so clients can reliably detect failures without breaking legacy consumers.
 
 ### Mobile experience
 
