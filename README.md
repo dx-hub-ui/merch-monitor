@@ -137,7 +137,7 @@ The workflow installs dependencies with `npm ci`, provisions Playwright browsers
 - **Account**: Change password and sign out.
 - **Header navigation**: Persistent links to Dashboard, Trends, and the Keywords intelligence suite (plus the admin Crawler when applicable) across desktop and mobile.
 
-All pages are responsive, accessible, and support dark mode via the header toggle. APIs respond from the Edge runtime; `/api/products` continues to return a JSON array of products but now includes pagination details in the `x-total-count` response header alongside the existing `x-plan-tier` entitlement header. On internal errors the handler falls back to an empty payload, annotates the response with `x-error`, and emits `x-total-count: 0` so clients can reliably detect failures without breaking legacy consumers.
+All pages are responsive, accessible, and support dark mode via the header toggle. APIs respond from the Edge runtime and return JSON objects (for example `{ products: [...], total: 123 }` for the dashboard feed); on internal errors the response body contains an empty dataset with an `x-error` header. The `/api/products` handler also preserves pagination metadata by always returning a `total` count and annotates successful responses with an `x-plan-tier` header for client gating.
 
 ### Mobile experience
 
