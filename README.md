@@ -28,10 +28,14 @@ SUPABASE_SERVICE_ROLE_KEY=...
 # Public write token for Vercel Blob uploads (used for avatars)
 BLOB_READ_WRITE_TOKEN=...
 # optional crawler overrides
-MAX_ITEMS=500
+MAX_ITEMS_PER_RUN=600
 USE_BEST_SELLERS=true
 ZGBS_PAGES=5
 ZGBS_PATHS=/Best-Sellers/zgbs
+USE_NEW_RELEASES=true
+NEW_PAGES=2
+USE_MOVERS=true
+MOVERS_PAGES=2
 USE_SEARCH=true
 SEARCH_PAGES=2
 SEARCH_CATEGORY=fashion-mens-tshirts
@@ -40,12 +44,19 @@ SEARCH_RH=n:7141123011
 SEARCH_KEYWORDS="merch hoodie,retro tee"
 HIDDEN_INCLUDE="official"
 HIDDEN_EXCLUDE="adult"
+RECRAWL_HOURS_P0=8
+RECRAWL_HOURS_P1=18
+RECRAWL_HOURS_P2=36
+RECRAWL_HOURS_P3=96
+PER_PAGE_DELAY_MS_MIN=1500
+PER_PAGE_DELAY_MS_MAX=3000
+PER_PRODUCT_DELAY_MS_MIN=4000
+PER_PRODUCT_DELAY_MS_MAX=6000
 ```
 
 Each key listed above overrides the admin-configured crawler settings. Omit a variable to keep the stored value.
 
-Boolean overrides are case-insensitive (`true`/`false`), numeric overrides are clamped to the allowed ranges (1–20 for pagination,
-50–5000 for `MAX_ITEMS`), and array overrides accept comma- or newline-delimited values. Empty strings are treated as `null` so
+Boolean overrides are case-insensitive (`true`/`false`), numeric overrides are clamped to the allowed ranges (Best Sellers pages: 1–10, search pages: 1–5, priority recrawl windows, and 100–5000 for `MAX_ITEMS_PER_RUN`), and array overrides accept comma- or newline-delimited values. Empty strings are treated as `null` so
 the dashboard falls back to the stored defaults.
 
 All command-line scripts use [`dotenv`](https://github.com/motdotla/dotenv) and automatically hydrate `process.env` from the nearest `.env` file, so keep your local environment file committed to disk before running crawls or background jobs.
@@ -60,6 +71,7 @@ psql "$SUPABASE_DB_URL" -f supabase/migrations/0002_product_type_and_crawler_set
 psql "$SUPABASE_DB_URL" -f supabase/migrations/0003_keywords.sql
 psql "$SUPABASE_DB_URL" -f supabase/migrations/0004_billing.sql
 psql "$SUPABASE_DB_URL" -f supabase/migrations/0005_profile_fields.sql
+psql "$SUPABASE_DB_URL" -f supabase/migrations/0006_crawler_queue_and_settings.sql
 ```
 
 The migrations install `pgvector`, create the `merch_*` tables, history trigger, keyword intelligence schema, semantic search RPCs, and Row Level Security policies. They are idempotent and safe to reapply.
@@ -90,14 +102,15 @@ npm run test:e2e   # Playwright UI smoke tests (requires running dev server)
 
 ### Crawling
 
-The crawler now combines admin-configured discovery rules, per-key environment overrides, and strict post-filtering to keep the dataset fail-closed:
+The crawler continuously monitors Amazon’s high-signal surfaces while enforcing a strict Merch-on-Demand predicate:
 
-- **Best Sellers & Search**: crawl Fashion/Novelty ZGBS categories and optional keyword searches (with `i`, `s`, `rh`, and hidden keyword filters). All candidate URLs are canonicalised to `https://www.amazon.com/dp/ASIN` before queuing.
-- **Strict merch detection**: pages must sit within a Fashion/Novelty breadcrumb and expose one of the approved “Merch on Demand” signals (logo, badge/byline, seller info, manufacturer, or JSON-LD). Non-matching pages are discarded.
-- **Variants**: twister data, `data-dp-url` attributes, and embedded JSON are scanned for additional ASINs; unseen variants are enqueued automatically.
-- **BSR snapshots**: the crawler reads the Best Sellers Rank from both legacy and the new detail-bullets layouts so each crawl appends a `merch_products_history` record with up-to-date BSR data for downstream analysis. When Amazon temporarily hides the rank we preserve the most recent known BSR/category so the history chart continues to reflect real-world fluctuations rather than noisy gaps.
-- **Persistence**: successful parses upsert `merch_products` and append a matching history record, updating `merch_flag_source` and the new `product_type` classification token (e.g. `hoodie`, `long-sleeve`, `tshirt`).
-- **Safety**: ≥4s throttling, media blocking, and a single JSON summary (including the final effective settings) are emitted at the end of each run.
+- **Discovery tiers**: Best Sellers, New Releases, Movers & Shakers, and filtered keyword searches all funnel into a single candidate set. Default discovery roots cover `/Best-Sellers/zgbs`, `/gp/new-releases`, and `/gp/movers-and-shakers` variants for US fashion/novelty plus the high-volume mens/womens/boys/girls T-shirt collections. Admins can trim or expand the lists, and every URL is canonicalised to `https://www.amazon.com/dp/ASIN` before deduplication.
+- **Priority queue & cadences**: candidates are grouped into P0–P3 queues with admin-tunable recrawl windows (defaulting to 6–96 hour SLAs). A new `merch_crawl_state` table tracks `next_due`, content fingerprints, failure counts, and discovery provenance so recrawls honour backoff rules and freshness targets. A dedicated variant lane reserves ~10 % of each run for newly discovered ASINs while keeping long-tail P3 items on a slower cadence.
+- **Strict merch detection**: listings must live within a Fashion or Novelty breadcrumb _and_ expose one of the approved Merch signals (logo art, “Merch on Demand” badges/sellers, manufacturer fields, or JSON-LD metadata). Pages that fail the predicate twice are automatically demoted and marked inactive.
+- **Variant expansion**: twister payloads, `data-dp-url` hints, CSA attributes, and embedded JSON are harvested for child ASINs. Unseen variants are immediately enqueued behind their parent with reduced priority but a protected budget share, driving ≥60 % variant coverage on multi-option listings.
+- **Persistence & logging**: successful parses upsert `merch_products`, append a `merch_products_history` snapshot, and emit a structured JSON log (insert/update action, queue level, freshness, merch flag source, and variant usage). A run-level summary reports candidate counts, priority consumption, skip totals, average fetch timings, and SLA conformance.
+- **Resource discipline**: Playwright contexts block media, listing fetches jitter between 1.5–3 s, product fetches between 4–6 s, and discovery runs rotate surfaces rather than bursting a single category. Each product attempt allows two exponential-backoff retries for transient errors and drops immediately on CAPTCHA.
+- **Schedule orchestration**: GitHub Actions runs the crawler every six hours for P0/P1/variant coverage, once per day for high-volume keyword sweeps, and three times per week for the long-tail backlog. Environment overrides can disable surfaces per run, and the summary JSON exposes per-priority freshness so SLA drift is visible in logs.
 
 ### Embeddings
 

@@ -9,8 +9,19 @@ import {
   type OverrideMap
 } from "@/lib/crawler-settings";
 
-const MAX_ITEMS_RANGE = { min: 50, max: 5000 } as const;
-const PAGE_RANGE = { min: 1, max: 20 } as const;
+const MAX_ITEMS_RANGE = { min: 100, max: 5000 } as const;
+const ZGBS_PAGE_RANGE = { min: 1, max: 10 } as const;
+const NEW_PAGE_RANGE = { min: 1, max: 5 } as const;
+const MOVERS_PAGE_RANGE = { min: 1, max: 3 } as const;
+const SEARCH_PAGE_RANGE = { min: 1, max: 5 } as const;
+const RECRAWL_RANGE = {
+  P0: { min: 4, max: 24 },
+  P1: { min: 8, max: 48 },
+  P2: { min: 12, max: 72 },
+  P3: { min: 24, max: 168 }
+} as const;
+const DELAY_PAGE_RANGE = { min: 1000, max: 7000 } as const;
+const DELAY_PRODUCT_RANGE = { min: 3000, max: 12000 } as const;
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -100,13 +111,16 @@ export function CrawlerSettingsForm({ stored, effective, overrides, canEdit, ini
               type="number"
               min={MAX_ITEMS_RANGE.min}
               max={MAX_ITEMS_RANGE.max}
-              value={form.max_items}
+              value={form.max_items_per_run}
               onChange={event =>
-                updateField("max_items", clamp(toInt(event.target.value, form.max_items), MAX_ITEMS_RANGE.min, MAX_ITEMS_RANGE.max))
+                updateField(
+                  "max_items_per_run",
+                  clamp(toInt(event.target.value, form.max_items_per_run), MAX_ITEMS_RANGE.min, MAX_ITEMS_RANGE.max)
+                )
               }
               className="w-32 rounded-lg border border-slate-300 px-3 py-2 text-slate-900 shadow-sm focus:border-brand focus:ring-2 focus:ring-brand/60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
             />
-            {overriddenKeys.has("max_items") ? (
+            {overriddenKeys.has("max_items_per_run") ? (
               <p className="text-xs font-medium text-amber-600">Overridden by environment</p>
             ) : null}
           </div>
@@ -133,11 +147,14 @@ export function CrawlerSettingsForm({ stored, effective, overrides, canEdit, ini
             <input
               id="zgbs-pages"
               type="number"
-              min={PAGE_RANGE.min}
-              max={PAGE_RANGE.max}
+              min={ZGBS_PAGE_RANGE.min}
+              max={ZGBS_PAGE_RANGE.max}
               value={form.zgbs_pages}
               onChange={event =>
-                updateField("zgbs_pages", clamp(toInt(event.target.value, form.zgbs_pages), PAGE_RANGE.min, PAGE_RANGE.max))
+                updateField(
+                  "zgbs_pages",
+                  clamp(toInt(event.target.value, form.zgbs_pages), ZGBS_PAGE_RANGE.min, ZGBS_PAGE_RANGE.max)
+                )
               }
               className="w-24 rounded-lg border border-slate-300 px-3 py-2 text-slate-900 shadow-sm focus:border-brand focus:ring-2 focus:ring-brand/60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
             />
@@ -167,6 +184,116 @@ export function CrawlerSettingsForm({ stored, effective, overrides, canEdit, ini
         </fieldset>
 
         <fieldset className="space-y-4" disabled={disabled}>
+          <legend className="text-lg font-semibold text-slate-900 dark:text-slate-100">New Releases</legend>
+          <label className="flex items-center gap-3 text-sm font-medium text-slate-700 dark:text-slate-200">
+            <input
+              type="checkbox"
+              checked={form.use_new_releases}
+              onChange={event => updateField("use_new_releases", event.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand"
+            />
+            Use New Releases paths
+          </label>
+          {overriddenKeys.has("use_new_releases") ? (
+            <p className="text-xs font-medium text-amber-600">Overridden by environment</p>
+          ) : null}
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor="new-pages">
+              Pages per path
+            </label>
+            <input
+              id="new-pages"
+              type="number"
+              min={NEW_PAGE_RANGE.min}
+              max={NEW_PAGE_RANGE.max}
+              value={form.new_pages}
+              onChange={event =>
+                updateField(
+                  "new_pages",
+                  clamp(toInt(event.target.value, form.new_pages), NEW_PAGE_RANGE.min, NEW_PAGE_RANGE.max)
+                )
+              }
+              className="w-24 rounded-lg border border-slate-300 px-3 py-2 text-slate-900 shadow-sm focus:border-brand focus:ring-2 focus:ring-brand/60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            />
+            {overriddenKeys.has("new_pages") ? (
+              <p className="text-xs font-medium text-amber-600">Overridden by environment</p>
+            ) : null}
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor="new-paths">
+              Custom New Release paths (one per line)
+            </label>
+            <textarea
+              id="new-paths"
+              value={serialiseStringArray(form.new_paths)}
+              onChange={event => updateField("new_paths", parseDelimitedInput(event.target.value))}
+              rows={4}
+              placeholder="/new-releases/fashion/..."
+              className="min-h-[6rem] rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-brand focus:ring-2 focus:ring-brand/60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            />
+            {overriddenKeys.has("new_paths") ? (
+              <p className="text-xs font-medium text-amber-600">Overridden by environment</p>
+            ) : null}
+            <p className="text-xs text-slate-500 dark:text-slate-400">Leave empty to use the default mirrored fashion categories.</p>
+          </div>
+        </fieldset>
+
+        <fieldset className="space-y-4" disabled={disabled}>
+          <legend className="text-lg font-semibold text-slate-900 dark:text-slate-100">Movers &amp; Shakers</legend>
+          <label className="flex items-center gap-3 text-sm font-medium text-slate-700 dark:text-slate-200">
+            <input
+              type="checkbox"
+              checked={form.use_movers}
+              onChange={event => updateField("use_movers", event.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand"
+            />
+            Use Movers &amp; Shakers paths
+          </label>
+          {overriddenKeys.has("use_movers") ? (
+            <p className="text-xs font-medium text-amber-600">Overridden by environment</p>
+          ) : null}
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor="movers-pages">
+              Pages per path
+            </label>
+            <input
+              id="movers-pages"
+              type="number"
+              min={MOVERS_PAGE_RANGE.min}
+              max={MOVERS_PAGE_RANGE.max}
+              value={form.movers_pages}
+              onChange={event =>
+                updateField(
+                  "movers_pages",
+                  clamp(toInt(event.target.value, form.movers_pages), MOVERS_PAGE_RANGE.min, MOVERS_PAGE_RANGE.max)
+                )
+              }
+              className="w-24 rounded-lg border border-slate-300 px-3 py-2 text-slate-900 shadow-sm focus:border-brand focus:ring-2 focus:ring-brand/60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            />
+            {overriddenKeys.has("movers_pages") ? (
+              <p className="text-xs font-medium text-amber-600">Overridden by environment</p>
+            ) : null}
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor="movers-paths">
+              Custom Movers paths (one per line)
+            </label>
+            <textarea
+              id="movers-paths"
+              value={serialiseStringArray(form.movers_paths)}
+              onChange={event => updateField("movers_paths", parseDelimitedInput(event.target.value))}
+              rows={4}
+              placeholder="/movers-and-shakers/fashion/..."
+              className="min-h-[6rem] rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-brand focus:ring-2 focus:ring-brand/60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            />
+            {overriddenKeys.has("movers_paths") ? (
+              <p className="text-xs font-medium text-amber-600">Overridden by environment</p>
+            ) : null}
+            <p className="text-xs text-slate-500 dark:text-slate-400">Leave empty to mirror the default fashion movers lists.</p>
+          </div>
+        </fieldset>
+
+        <fieldset className="space-y-4" disabled={disabled}>
           <legend className="text-lg font-semibold text-slate-900 dark:text-slate-100">Filtered search</legend>
           <label className="flex items-center gap-3 text-sm font-medium text-slate-700 dark:text-slate-200">
             <input
@@ -187,11 +314,14 @@ export function CrawlerSettingsForm({ stored, effective, overrides, canEdit, ini
             <input
               id="search-pages"
               type="number"
-              min={PAGE_RANGE.min}
-              max={PAGE_RANGE.max}
+              min={SEARCH_PAGE_RANGE.min}
+              max={SEARCH_PAGE_RANGE.max}
               value={form.search_pages}
               onChange={event =>
-                updateField("search_pages", clamp(toInt(event.target.value, form.search_pages), PAGE_RANGE.min, PAGE_RANGE.max))
+                updateField(
+                  "search_pages",
+                  clamp(toInt(event.target.value, form.search_pages), SEARCH_PAGE_RANGE.min, SEARCH_PAGE_RANGE.max)
+                )
               }
               className="w-24 rounded-lg border border-slate-300 px-3 py-2 text-slate-900 shadow-sm focus:border-brand focus:ring-2 focus:ring-brand/60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
             />
@@ -199,7 +329,7 @@ export function CrawlerSettingsForm({ stored, effective, overrides, canEdit, ini
               <p className="text-xs font-medium text-amber-600">Overridden by environment</p>
             ) : null}
           </div>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-4">
             <TextInput
               id="search-category"
               label="Category (i parameter)"
@@ -214,7 +344,7 @@ export function CrawlerSettingsForm({ stored, effective, overrides, canEdit, ini
               value={form.search_sort ?? ""}
               onChange={value => updateField("search_sort", value || null)}
               overridden={overriddenKeys.has("search_sort")}
-              placeholder="review-rank"
+              placeholder="featured"
             />
             <TextInput
               id="search-rh"
@@ -222,7 +352,15 @@ export function CrawlerSettingsForm({ stored, effective, overrides, canEdit, ini
               value={form.search_rh ?? ""}
               onChange={value => updateField("search_rh", value || null)}
               overridden={overriddenKeys.has("search_rh")}
-              placeholder="n:7141123011"
+              placeholder="p_6:ATVPDKIKX0DER"
+            />
+            <TextInput
+              id="marketplace-id"
+              label="Marketplace ID"
+              value={form.marketplace_id}
+              onChange={value => updateField("marketplace_id", value || DEFAULT_CRAWLER_SETTINGS.marketplace_id)}
+              overridden={overriddenKeys.has("marketplace_id")}
+              placeholder="ATVPDKIKX0DER"
             />
           </div>
           <div className="flex flex-col gap-2">
@@ -258,6 +396,99 @@ export function CrawlerSettingsForm({ stored, effective, overrides, canEdit, ini
               overridden={overriddenKeys.has("hidden_exclude")}
               placeholder="adult\ncustom"
             />
+          </div>
+        </fieldset>
+
+        <fieldset className="space-y-4" disabled={disabled}>
+          <legend className="text-lg font-semibold text-slate-900 dark:text-slate-100">Cadence &amp; throttling</legend>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Configure how often each priority tier is revisited and the randomized delays between fetches.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-4">
+            <NumberField
+              id="recrawl-p0"
+              label="P0 recrawl (hours)"
+              value={form.recrawl_hours_p0}
+              min={RECRAWL_RANGE.P0.min}
+              max={RECRAWL_RANGE.P0.max}
+              overridden={overriddenKeys.has("recrawl_hours_p0")}
+              onChange={value => updateField("recrawl_hours_p0", value)}
+            />
+            <NumberField
+              id="recrawl-p1"
+              label="P1 recrawl (hours)"
+              value={form.recrawl_hours_p1}
+              min={RECRAWL_RANGE.P1.min}
+              max={RECRAWL_RANGE.P1.max}
+              overridden={overriddenKeys.has("recrawl_hours_p1")}
+              onChange={value => updateField("recrawl_hours_p1", value)}
+            />
+            <NumberField
+              id="recrawl-p2"
+              label="P2 recrawl (hours)"
+              value={form.recrawl_hours_p2}
+              min={RECRAWL_RANGE.P2.min}
+              max={RECRAWL_RANGE.P2.max}
+              overridden={overriddenKeys.has("recrawl_hours_p2")}
+              onChange={value => updateField("recrawl_hours_p2", value)}
+            />
+            <NumberField
+              id="recrawl-p3"
+              label="P3 recrawl (hours)"
+              value={form.recrawl_hours_p3}
+              min={RECRAWL_RANGE.P3.min}
+              max={RECRAWL_RANGE.P3.max}
+              overridden={overriddenKeys.has("recrawl_hours_p3")}
+              onChange={value => updateField("recrawl_hours_p3", value)}
+            />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Listing delay (ms)</p>
+              <div className="flex gap-3">
+                <NumberField
+                  id="per-page-delay-min"
+                  label="Min"
+                  value={form.per_page_delay_ms_min}
+                  min={DELAY_PAGE_RANGE.min}
+                  max={DELAY_PAGE_RANGE.max}
+                  overridden={overriddenKeys.has("per_page_delay_ms_min")}
+                  onChange={value => updateField("per_page_delay_ms_min", value)}
+                />
+                <NumberField
+                  id="per-page-delay-max"
+                  label="Max"
+                  value={form.per_page_delay_ms_max}
+                  min={DELAY_PAGE_RANGE.min}
+                  max={DELAY_PAGE_RANGE.max}
+                  overridden={overriddenKeys.has("per_page_delay_ms_max")}
+                  onChange={value => updateField("per_page_delay_ms_max", value)}
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Product delay (ms)</p>
+              <div className="flex gap-3">
+                <NumberField
+                  id="per-product-delay-min"
+                  label="Min"
+                  value={form.per_product_delay_ms_min}
+                  min={DELAY_PRODUCT_RANGE.min}
+                  max={DELAY_PRODUCT_RANGE.max}
+                  overridden={overriddenKeys.has("per_product_delay_ms_min")}
+                  onChange={value => updateField("per_product_delay_ms_min", value)}
+                />
+                <NumberField
+                  id="per-product-delay-max"
+                  label="Max"
+                  value={form.per_product_delay_ms_max}
+                  min={DELAY_PRODUCT_RANGE.min}
+                  max={DELAY_PRODUCT_RANGE.max}
+                  overridden={overriddenKeys.has("per_product_delay_ms_max")}
+                  onChange={value => updateField("per_product_delay_ms_max", value)}
+                />
+              </div>
+            </div>
           </div>
         </fieldset>
 
@@ -315,6 +546,36 @@ type TextInputProps = {
   overridden?: boolean;
   onChange: (value: string) => void;
 };
+
+type NumberFieldProps = {
+  id: string;
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  overridden?: boolean;
+  onChange: (value: number) => void;
+};
+
+function NumberField({ id, label, value, min, max, overridden, onChange }: NumberFieldProps) {
+  return (
+    <div className="flex flex-col gap-2">
+      <label className="text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor={id}>
+        {label}
+      </label>
+      <input
+        id={id}
+        type="number"
+        min={min}
+        max={max}
+        value={value}
+        onChange={event => onChange(clamp(toInt(event.target.value, value), min, max))}
+        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-brand focus:ring-2 focus:ring-brand/60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+      />
+      {overridden ? <p className="text-xs font-medium text-amber-600">Overridden by environment</p> : null}
+    </div>
+  );
+}
 
 function TextInput({ id, label, value, placeholder, overridden, onChange }: TextInputProps) {
   return (
