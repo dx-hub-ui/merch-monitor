@@ -87,6 +87,7 @@ npm run embed      # Generate OpenAI embeddings for new/changed products
 npm run metrics    # Compute momentum metrics from history snapshots
 npm run jobs       # Run crawl → embed → metrics sequentially (self-hosted cron helper)
 npm run jobs:dry-run # Print the job plan without executing scripts
+npm run workflow   # Manually execute workflow presets (crawl or keyword maintenance)
 npm run keywords:suggest # Amazon autocomplete harvesting pipeline
 npm run keywords:serp    # SERP crawler for queued keyword jobs
 npm run keywords:embed   # Generate embeddings for keyword terms
@@ -120,6 +121,30 @@ those limits should fall back to a self-hosted scheduler:
 
 The job runner validates required environment variables up-front so failures
 surface immediately instead of mid-crawl.
+
+### Manual workflow execution
+
+The `npm run workflow` helper mirrors the two GitHub workflow files so jobs can
+be triggered locally or from a lightweight server without relying on Actions
+minutes:
+
+```bash
+# Run the crawl/metrics pipeline. Modes map to the scheduled GitHub runs.
+npm run workflow -- crawl --mode=high-frequency
+npm run workflow -- crawl --mode=keyword-sweep
+npm run workflow -- crawl --mode=backlog-touch
+
+# Trigger keyword maintenance scripts sequentially.
+npm run workflow -- keywords --scripts "keywords:serp,keywords:embed"
+
+# Install Playwright browsers before running keywords.
+npm run workflow -- keywords --install-playwright
+```
+
+All options can be combined with `--dry-run`, `--allow-missing-env`, or
+`--only=...` to reuse the existing job runner flags. The helper applies the same
+environment overrides that the GitHub YAML defines (for example `USE_SEARCH`
+and `CRAWLER_RUN_MODE`), so a single command replicates the scheduled plans.
 
 ### Crawling
 
