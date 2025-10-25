@@ -41,7 +41,9 @@ export type ProductDetail = {
 
 type SemanticSearchResult = { asin: string; content: string; score: number };
 
-export async function getSession() {
+export type AuthenticatedSession = Pick<Session, "user">;
+
+export async function getSession(): Promise<AuthenticatedSession | null> {
   if (process.env.E2E_BYPASS_AUTH === "true") {
     return {
       user: {
@@ -50,7 +52,7 @@ export async function getSession() {
         app_metadata: { provider: "email", is_admin: true },
         user_metadata: { is_admin: true }
       }
-    } as unknown as Session;
+    } satisfies AuthenticatedSession;
   }
   const supabase = createServerSupabaseClient();
   const {
@@ -66,23 +68,10 @@ export async function getSession() {
   if (!user) {
     return null;
   }
-  const {
-    data: { session },
-    error: sessionError
-  } = await supabase.auth.getSession();
-  if (sessionError) {
-    if (sessionError instanceof AuthSessionMissingError) {
-      return null;
-    }
-    throw sessionError;
-  }
-  if (!session) {
-    return null;
-  }
-  return { ...session, user } as Session;
+  return { user } satisfies AuthenticatedSession;
 }
 
-export async function requireSession() {
+export async function requireSession(): Promise<AuthenticatedSession> {
   const session = await getSession();
   if (!session) {
     throw new Error("AUTH_REQUIRED");

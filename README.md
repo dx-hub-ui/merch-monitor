@@ -193,6 +193,7 @@ CI workflows run linting, tests, crawler, embedding, and metrics jobs. See `.git
 - Remote product imagery is allowed via the configured `next.config.mjs` host patterns; no additional experimental flags are required because Server Actions are enabled by default in Next.js 14.
 - If you change Supabase types, regenerate `lib/supabase/types.ts` with `supabase gen types typescript --linked` so that strongly typed API hooks continue to compile.
 - Supabase role checks should always go through `supabase.auth.getUser()` (not `getSession()`) so the middleware and API routes only trust server-verified identity claims when determining admin access.
+- The server `getSession()` helper now returns only the server-verified Supabase user object and skips `supabase.auth.getSession()` entirely, eliminating runtime warnings about unauthenticated cookie data while preserving the existing call sites.
 - Client components should import keyword types and helpers from `@/lib/keywords`, while server routes/actions pull data loaders from `@/lib/keywords/server` to avoid bundling the `next/headers` Supabase client into the browser build.
 - API route helpers with shared parsing logic (such as the BSR range clamps) live in `lib/bsr.ts` so both request handlers and tests can import a single source of truth without breaking the Edge runtime export contract.
 

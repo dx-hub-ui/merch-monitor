@@ -1,4 +1,5 @@
 import type { Session, User } from "@supabase/supabase-js";
+import type { AuthenticatedSession } from "@/lib/supabase/queries";
 
 type Metadata = Record<string, unknown> | undefined | null;
 
@@ -48,7 +49,9 @@ function hasAdminFlag(meta: Metadata): boolean {
   return false;
 }
 
-function extractUser(sessionOrUser: Session | User | null | undefined): User | null {
+function extractUser(
+  sessionOrUser: Session | AuthenticatedSession | User | null | undefined
+): User | null {
   if (!sessionOrUser) return null;
   if ("user" in sessionOrUser) {
     return sessionOrUser.user;
@@ -71,7 +74,9 @@ export function isAdminUser(user: User | null | undefined): boolean {
   return role === "admin";
 }
 
-export function isAdminSession(session: Session | null | undefined): boolean {
+export function isAdminSession(
+  session: Session | AuthenticatedSession | null | undefined
+): boolean {
   const user = extractUser(session);
   return isAdminUser(user);
 }
