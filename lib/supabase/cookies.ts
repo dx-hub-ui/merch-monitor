@@ -1,4 +1,15 @@
 const BASE64_PREFIX = "base64-";
+export const SUPABASE_COOKIE_NAME_PREFIX = "sb-";
+
+type CookieSetter = {
+  (name: string, value: string): unknown;
+  (cookie: { name: string; value: string }): unknown;
+};
+
+export type NormalizableCookieStore = {
+  getAll(): Array<{ name: string; value: string }>;
+  set: CookieSetter;
+};
 
 function ensureBase64Padding(value: string) {
   const remainder = value.length % 4;
@@ -52,5 +63,18 @@ export function decodeSupabaseCookieValue(value?: string | null) {
     }
   } catch {
     return value;
+  }
+}
+
+export function normalizeSupabaseCookies(cookieStore: NormalizableCookieStore) {
+  for (const cookie of cookieStore.getAll()) {
+    if (!cookie.name.startsWith(SUPABASE_COOKIE_NAME_PREFIX)) {
+      continue;
+    }
+
+    const decoded = decodeSupabaseCookieValue(cookie.value);
+    if (decoded !== cookie.value && decoded !== null && typeof decoded === "string") {
+      cookieStore.set({ name: cookie.name, value: decoded });
+    }
   }
 }
