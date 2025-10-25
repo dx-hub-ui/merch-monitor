@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 interface BillingActionsProps {
   planTier: "basic" | "pro";
@@ -8,34 +9,13 @@ interface BillingActionsProps {
 }
 
 export function BillingActions({ planTier, stripeSubscriptionId }: BillingActionsProps) {
+  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
-  const [isCheckoutPending, startCheckout] = useTransition();
   const [isPortalLoading, setPortalLoading] = useState(false);
 
   const startUpgrade = () => {
     setError(null);
-    startCheckout(async () => {
-      try {
-        const response = await fetch("/api/billing/checkout", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ plan: "pro" })
-        });
-        if (!response.ok) {
-          const body = await response.json().catch(() => ({ error: "Unable to start checkout" }));
-          setError(body.error ?? "Unable to start checkout");
-          return;
-        }
-        const data = (await response.json()) as { url?: string };
-        if (data.url) {
-          window.location.href = data.url;
-        } else {
-          setError("Checkout session missing redirect URL");
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Unexpected checkout error");
-      }
-    });
+    router.push("/plans");
   };
 
   const openPortal = async () => {
@@ -74,7 +54,6 @@ export function BillingActions({ planTier, stripeSubscriptionId }: BillingAction
             type="button"
             onClick={startUpgrade}
             className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white shadow hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/70"
-            disabled={isCheckoutPending}
           >
             Upgrade to Pro
           </button>
