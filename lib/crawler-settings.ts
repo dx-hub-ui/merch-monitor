@@ -311,7 +311,9 @@ export function applyEnvOverrides(
   for (const key of ARRAY_ENV_KEYS) {
     const envKey = key.toUpperCase();
     if (env[envKey] != null) {
-      updated[key] = sanitizeStringArray(env[envKey]!.split(","));
+      const raw = env[envKey]!;
+      const parsed = parseDelimitedInput(raw);
+      updated[key] = sanitizeStringArray(parsed);
       overrides[key] = true;
     }
   }

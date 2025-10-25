@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  applyEnvOverrides,
   buildEffectiveSettings,
   DEFAULT_CRAWLER_SETTINGS,
   DEFAULT_MOVERS_PATHS,
@@ -55,5 +56,29 @@ describe("crawler settings", () => {
     expect(DEFAULT_ZGBS_PATHS.every(path => path.startsWith("/Best-Sellers"))).toBe(true);
     expect(DEFAULT_NEW_RELEASE_PATHS.every(path => path.startsWith("/gp/new-releases"))).toBe(true);
     expect(DEFAULT_MOVERS_PATHS.every(path => path.startsWith("/gp/movers-and-shakers"))).toBe(true);
+  });
+
+  it("parses newline-delimited env overrides for array settings", () => {
+    const base = {
+      ...DEFAULT_CRAWLER_SETTINGS,
+      zgbs_paths: ["/Best-Sellers/zgbs"],
+      new_paths: [],
+      movers_paths: []
+    };
+
+    const { settings, overrides } = applyEnvOverrides(base, {
+      ZGBS_PATHS: "  /Best-Sellers/zgbs  \n  /Best-Sellers/custom  \n",
+      NEW_PATHS: "\n/gp/new-releases/custom\n",
+      MOVERS_PATHS: "/gp/movers-and-shakers/custom\n\n"
+    } as NodeJS.ProcessEnv);
+
+    expect(settings.zgbs_paths).toEqual(["/Best-Sellers/zgbs", "/Best-Sellers/custom"]);
+    expect(settings.new_paths).toEqual(["/gp/new-releases/custom"]);
+    expect(settings.movers_paths).toEqual(["/gp/movers-and-shakers/custom"]);
+    expect(overrides).toMatchObject({
+      zgbs_paths: true,
+      new_paths: true,
+      movers_paths: true
+    });
   });
 });
