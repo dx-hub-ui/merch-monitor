@@ -61,6 +61,11 @@ the dashboard falls back to the stored defaults.
 
 All command-line scripts use [`dotenv`](https://github.com/motdotla/dotenv) and automatically hydrate `process.env` from the nearest `.env` file, so keep your local environment file committed to disk before running crawls or background jobs.
 
+## Billing & plans
+
+- Authenticated users can review pricing and feature differences at `/plans`. The page highlights the Basic and Pro tiers, mirrors the entitlements configured in `lib/billing/plans.ts`, and links directly into the Stripe checkout flow for upgrades.
+- The account screen’s **Upgrade to Pro** action now routes to the plans page so members can compare limits before committing to checkout.
+
 ## Database setup
 
 Run the base migration against your Supabase database:
