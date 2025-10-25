@@ -95,14 +95,14 @@ export async function GET(req: NextRequest) {
 
   const { data, error, count } = await query;
 
-  const respond = (
+  function respond(
     body: { products: ProductRow[]; total: number },
     init: Parameters<typeof NextResponse.json>[1] = { status: 200 }
-  ) => {
+  ) {
     const response = NextResponse.json(body, init);
     response.headers.set("x-plan-tier", entitlements.planTier);
     return response;
-  };
+  }
 
   if (error) {
     const res = respond({ products: [], total: 0 });
@@ -111,7 +111,7 @@ export async function GET(req: NextRequest) {
   }
 
   const products = (data ?? []) as ProductRow[];
-  const total =
+  const totalCount =
     count ?? (products.length < limit ? Math.max(offset + products.length, 0) : offset + products.length + 1);
 
   const missingBsrAsins = products.filter(product => product.bsr == null).map(product => product.asin);
@@ -139,5 +139,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return respond({ products: resolvedProducts, total });
+  return respond({ products: resolvedProducts, total: totalCount });
 }
