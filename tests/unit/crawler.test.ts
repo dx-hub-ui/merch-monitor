@@ -75,6 +75,8 @@ describe("crawler helpers", () => {
   it("converts money strings to cents", () => {
     expect(moneyToCents("$12.99")).toBe(1299);
     expect(moneyToCents("USD 0.99")).toBe(99);
+    expect(moneyToCents("€12,34")).toBe(1234);
+    expect(moneyToCents("€1.234,56")).toBe(123456);
     expect(moneyToCents(null)).toBeNull();
   });
 

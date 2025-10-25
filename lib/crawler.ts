@@ -118,10 +118,41 @@ function resolveListingUrl(path: string, pageParam: string, page: number) {
   }
 }
 
+function normaliseMoneyInput(txt: string) {
+  const stripped = txt.replace(/[^\d.,-]/g, "").trim();
+  if (!stripped) return null;
+
+  const hasComma = stripped.includes(",");
+  const hasDot = stripped.includes(".");
+
+  // Prices may come in formats such as:
+  // - "1,234.56" (US)
+  // - "1.234,56" (EU)
+  // - "12,34"   (EU without thousands separator)
+  let normalised = stripped;
+  if (hasComma && hasDot) {
+    if (stripped.lastIndexOf(",") > stripped.lastIndexOf(".")) {
+      normalised = stripped.replace(/\./g, "").replace(/,/g, ".");
+    } else {
+      normalised = stripped.replace(/,/g, "");
+    }
+  } else if (hasComma) {
+    normalised = stripped.replace(/,/g, ".");
+  } else {
+    normalised = stripped.replace(/,/g, "");
+  }
+
+  const parsed = Number.parseFloat(normalised);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+  return parsed;
+}
+
 export function moneyToCents(txt?: string | null) {
   if (!txt) return null;
-  const m = txt.replace(/[^\d.]/g, "");
-  return m ? Math.round(parseFloat(m) * 100) : null;
+  const parsed = normaliseMoneyInput(txt);
+  return parsed != null ? Math.round(parsed * 100) : null;
 }
 
 export function parseBSR($: cheerio.CheerioAPI) {
