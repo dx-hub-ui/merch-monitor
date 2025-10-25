@@ -106,6 +106,7 @@ npm run test:e2e   # Playwright UI smoke tests (requires running dev server)
 - TypeScript project references now include the `components/` directory so ESLint and type-checking catch issues in shared UI components during `next lint` and `next build`.
 - Avatar previews and profile photos use `next/image` to satisfy Next.js lint rules and ensure client previews (including `blob:` URLs) stay optimised. Reuse the existing utilities when adding new avatar surfaces.
 - The E2E auth bypass path seeds a fully shaped Supabase user stub so `next build` type-checks succeed without requiring network calls to Supabase during automated runs.
+- Momentum metrics clamp extreme positive review deltas to `1` and keep flat or negative growth at `0`, so write tests accordingly when expanding the scoring logic.
 
 ### Self-hosted scheduling
 
